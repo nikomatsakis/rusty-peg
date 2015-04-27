@@ -1,5 +1,39 @@
 use super::{Grammar, Input, Parser, Peg, PegError, PegResult};
 
+trait PegUtil {
+    fn or<P2>(self, peg2: P2) -> Or<Self, P2>;
+    fn and<P2>(self, peg2: P2) -> And<Self, P2>;
+    fn andl<P2>(self, peg2: P2) -> First<And<Self, P2>>;
+    fn andr<P2>(self, peg2: P2) -> Second<And<Self, P2>>;
+    fn first(self) -> First<Self>;
+    fn second(self) -> Second<Self>;
+    fn map<F>(self, f: F) -> Map<Self, F>;
+}
+
+impl<P1> PegUtil for P1 {
+    fn or<P2>(self, peg2: P2) -> Or<P1, P2> {
+        Or { peg1: self, peg2: peg2 }
+    }
+    fn and<P2>(self, peg2: P2) -> And<P1, P2> {
+        And { peg1: self, peg2: peg2 }
+    }
+    fn andl<P2>(self, peg2: P2) -> First<And<P1, P2>> {
+        self.and(peg2).first()
+    }
+    fn andr<P2>(self, peg2: P2) -> Second<And<P1, P2>> {
+        self.and(peg2).second()
+    }
+    fn first(self) -> First<P1> {
+        First { peg1: self }
+    }
+    fn second(self) -> Second<P1> {
+        Second { peg1: self }
+    }
+    fn map<F>(self, f: F) -> Map<P1, F> {
+        Map { peg1: self, func: f }
+    }
+}
+
 impl<G,O> Peg<G> for Parser<G,O>
     where G: Grammar
 {
@@ -63,5 +97,61 @@ impl<G,P1,P2> Peg<G> for And<P1, P2>
         let (output1, input) = try!(self.peg1.parse(grammar, input));
         let (output2, input) = try!(self.peg2.parse(grammar, input));
         Ok(((output1, output2), input))
+    }
+}
+
+pub struct First<P1>
+{
+    peg1: P1,
+}
+
+impl<A,B,G,P1> Peg<G> for First<P1>
+    where G: Grammar, P1: Peg<G,Output=(A,B)>
+{
+    type Output = A;
+
+    fn parse<'a>(&'a self, grammar: &G, input: Input<'a>)
+                 -> PegResult<'a, G, A>
+    {
+        let ((a, b), input) = try!(self.peg1.parse(grammar, input));
+        Ok((a, input))
+    }
+}
+
+pub struct Second<P1>
+{
+    peg1: P1,
+}
+
+impl<A,B,G,P1> Peg<G> for Second<P1>
+    where G: Grammar, P1: Peg<G,Output=(A,B)>
+{
+    type Output = B;
+
+    fn parse<'a>(&'a self, grammar: &G, input: Input<'a>)
+                 -> PegResult<'a, G, B>
+    {
+        let ((a, b), input) = try!(self.peg1.parse(grammar, input));
+        Ok((b, input))
+    }
+}
+
+pub struct Map<P1,F>
+{
+    peg1: P1,
+    func: F,
+}
+
+impl<A,B,G,P1,F> Peg<G> for Map<P1, F>
+    where G: Grammar, P1: Peg<G,Output=A>, F: Fn(A) -> B
+{
+    type Output = B;
+
+    fn parse<'a>(&'a self, grammar: &G, input: Input<'a>)
+                 -> PegResult<'a, G, B>
+    {
+        let (a, input) = try!(self.peg1.parse(grammar, input));
+        let b = (self.func)(a);
+        Ok((b, input))
     }
 }
