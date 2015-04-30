@@ -2,6 +2,9 @@
 
 pub trait Grammar {
     type Error: Error;
+
+    fn expected_text(&self, input: Input, expected: &str) -> Self::Error;
+    fn expected_whitespace(&self, input: Input) -> Self::Error;
 }
 
 pub trait Error {
@@ -14,7 +17,7 @@ pub struct Input<'a> {
     offset: usize,
 }
 
-pub type PegResult<'a,G,O> = Result<(O, Input<'a>), PegError<'a, G>>;
+pub type PegResult<'a,G,O> = Result<(O, Input<'a>), <G as Grammar>::Error>;
 
 pub trait Peg<G:Grammar> {
     type Output;
@@ -24,15 +27,7 @@ pub trait Peg<G:Grammar> {
 
 pub type Parser<G,O> = Box<Peg<G,Output=O>>;
 
-pub enum PegError<'a, G:Grammar> {
-    ExpectedText(&'a str),
-    User(G::Error),
-}
-
-mod util;
+pub mod util;
+pub mod tree;
 
 #[cfg(test)] mod test;
-
-pub use util::And;
-pub use util::Or;
-pub use util::Literal;

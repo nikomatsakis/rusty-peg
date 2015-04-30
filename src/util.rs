@@ -1,4 +1,4 @@
-use super::{Grammar, Input, Parser, Peg, PegError, PegResult};
+use super::{Grammar, Input, Parser, Peg, PegResult};
 
 trait PegUtil {
     fn or<P2>(self, peg2: P2) -> Or<Self, P2>;
@@ -45,9 +45,42 @@ impl<G,O> Peg<G> for Parser<G,O>
     }
 }
 
+pub struct Whitespace;
+
+impl<G:Grammar> Peg<G> for Whitespace {
+    type Output = ();
+
+    fn parse<'a>(&'a self, grammar: &G, mut input: Input<'a>) -> PegResult<'a, G, ()> {
+        let offset = input.offset;
+        let bytes = input.text.as_bytes();
+        while input.offset < input.text.len() && is_space(bytes[input.offset]) {
+            input.offset += 1;
+        }
+        return if offset != input.offset {
+            Ok(((), input))
+        } else {
+            Err(grammar.expected_whitespace(input))
+        };
+
+        fn is_space(c: u8) -> bool {
+            match c as char {
+                ' ' => true,
+                '\n' => true,
+                _ => false,
+            }
+        }
+    }
+}
+
 pub struct Literal
 {
     text: String
+}
+
+impl Literal {
+    pub fn new(s: String) -> Literal {
+        Literal { text: s }
+    }
 }
 
 impl<G:Grammar> Peg<G> for Literal {
@@ -58,7 +91,7 @@ impl<G:Grammar> Peg<G> for Literal {
             input.offset += self.text.len();
             Ok(((), input))
         } else {
-            Err(PegError::ExpectedText(&self.text))
+            Err(grammar.expected_text(input, &self.text))
         }
     }
 }

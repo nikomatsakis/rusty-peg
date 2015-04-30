@@ -1,4 +1,10 @@
-use super::{Grammar, Input, Parser, Peg, PegError, PegResult};
-use super::{And, Or, Literal};
+use super::{Grammar, Input, Parser, Peg, PegResult};
+use super::util::*;
 
+pub struct TestGrammar;
 
+#[test]
+fn basic_test() {
+    let parser = Literal::new(format!("A"));
+    
+}
