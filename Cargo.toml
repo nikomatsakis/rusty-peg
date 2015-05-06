@@ -3,3 +3,7 @@
 name = "rusty-peg"
 version = "0.0.1"
 authors = ["Niko Matsakis <niko@alum.mit.edu>"]
+
+[dependencies]
+
+regex = "0.1.30"

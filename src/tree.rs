@@ -1,11 +1,12 @@
 use std::mem;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct ParseTree<K> {
     pub kind: K,
     pub span: Span,
-    pub child: Option<Box<ParseTree<K>>>,
-    pub sibling: Option<Box<ParseTree<K>>>,
+    pub child: Option<Rc<ParseTree<K>>>,
+    pub sibling: Option<Rc<ParseTree<K>>>,
 }
 
 #[derive(Debug)]
@@ -19,39 +20,33 @@ pub const DUMMY_SPAN: Span = Span { lo: 0, hi: 0 };
 ///////////////////////////////////////////////////////////////////////////
 
 impl<K> ParseTree<K> {
-    fn build(value: K, span: Span, mut children: Vec<ParseTree<K>>) -> ParseTree<K> {
-        let mut tree = ParseTree::new(value, span);
-        children.reverse();
-        for child in children {
-            tree.add_child_front(child);
-        }
-        tree
+    #[cfg(test)]
+    fn build(value: K, span: Span, children: Vec<ParseTree<K>>) -> ParseTree<K> {
+        ParseTree::new(value, span, ParseTree::sibling_chain(children))
     }
 
-    pub fn new(kind: K, span: Span) -> ParseTree<K> {
-        ParseTree { kind: kind, span: span, child: None, sibling: None }
+    pub fn new(kind: K, span: Span, child: Option<ParseTree<K>>) -> ParseTree<K> {
+        let child = child.map(Rc::new);
+        ParseTree { kind: kind, span: span, child: child, sibling: None }
+    }
+
+    pub fn sibling_chain(mut children: Vec<ParseTree<K>>) -> Option<ParseTree<K>> {
+        let mut p = match children.pop() {
+            Some(p) => p,
+            None => { return None; }
+        };
+        while let Some(mut q) = children.pop() {
+            q.sibling = Some(Rc::new(p));
+            p = q;
+        }
+        Some(p)
     }
 
     pub fn add_child_front(&mut self, mut child: ParseTree<K>) {
         assert!(child.sibling.is_none());
         let old_child = mem::replace(&mut self.child, None);
         child.sibling = old_child;
-        self.child = Some(Box::new(child));
-    }
-
-    pub fn add_child_back(&mut self, new_child: ParseTree<K>) {
-        assert!(new_child.sibling.is_none());
-        match self.child {
-            None => { self.child = Some(Box::new(new_child)); }
-            Some(ref mut child) => { child.add_sibling_back(new_child); }
-        }
-    }
-
-    pub fn add_sibling_back(&mut self, new_sibling: ParseTree<K>) {
-        match self.sibling {
-            None => { self.sibling = Some(Box::new(new_sibling)); }
-            Some(ref mut sibling) => { sibling.add_sibling_back(new_sibling); }
-        }
+        self.child = Some(Rc::new(child));
     }
 
     pub fn children(&self) -> ChildIterator<K> {
@@ -59,12 +54,8 @@ impl<K> ParseTree<K> {
     }
 }
 
-fn to_ref<K>(tree: &Option<Box<ParseTree<K>>>) -> Option<&ParseTree<K>> {
+fn to_ref<K>(tree: &Option<Rc<ParseTree<K>>>) -> Option<&ParseTree<K>> {
     tree.as_ref().map(|t| &**t)
-}
-
-fn to_mut_ref<K>(tree: &mut Option<Box<ParseTree<K>>>) -> Option<&mut ParseTree<K>> {
-    tree.as_mut().map(|t| &mut **t)
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -87,6 +78,14 @@ impl<'tree, K> Iterator for ChildIterator<'tree, K> {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////
+
+impl Span {
+    pub fn new(lo: usize, hi: usize) -> Span {
+        Span { lo: lo, hi: hi }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -102,7 +101,7 @@ mod test {
     #[test]
     fn iterate() {
         let tree = test_tree!({22; {44; {66;}} {88;}});
-        let kids = tree.children().map(|x| x.kind).collect();
+        let kids: Vec<_> = tree.children().map(|x| x.kind).collect();
         assert_eq!(kids, vec![44, 88]);
     }
 }
