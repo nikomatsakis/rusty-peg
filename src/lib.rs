@@ -1,17 +1,9 @@
 #![crate_type="rlib"]
+#![allow(dead_code)] // for now
 
 extern crate regex;
 
-use tree::ParseTree;
-
-pub struct Grammar<NT> {
-    nonterminals: Vec<NonterminalDef<NT>>
-}
-
-pub type NonterminalDef<NT> = Vec<Box<Parser<NT>>>;
-
-pub trait NonterminalId: Clone {
-    fn to_usize(&self) -> usize;
+pub trait Grammar {
 }
 
 #[derive(Copy,Clone)]
@@ -20,11 +12,23 @@ pub struct Input<'a> {
     offset: usize,
 }
 
-pub trait Parser<NT> {
-    fn parse<'a>(&'a self, grammar: &'a Grammar<NT>, input: Input<'a>) -> ParseResult<'a,NT>;
+pub trait Parser<G:Grammar> {
+    type Output;
+
+    fn pretty_print(&self) -> String;
+
+    fn parse_prefix<'a>(&'a self, grammar: &'a G, text: &'a str)
+                     -> ParseResult<'a,Self::Output>
+    {
+        let input = Input { text: text, offset: 0 };
+        self.parse(grammar, input)
+    }
+
+    fn parse<'a>(&'a self, grammar: &'a G, input: Input<'a>)
+                 -> ParseResult<'a,Self::Output>;
 }
 
-pub type ParseResult<'a,NT> = Result<(Input<'a>, ParseTree<Kind<NT>>), Error<'a>>;
+pub type ParseResult<'a,O> = Result<(Input<'a>, O), Error<'a>>;
 
 pub enum Kind<NT> {
     Text,
@@ -35,15 +39,10 @@ pub enum Kind<NT> {
     Nonterminal(NT)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Error<'a> {
-    kind: ErrorKind<'a>,
+    expected: &'a str,
     offset: usize
-}
-
-#[derive(Clone)]
-pub enum ErrorKind<'a> {
-    Expected(&'a str),
 }
 
 pub mod util;
@@ -55,4 +54,4 @@ impl<'a> Input<'a> {
     }
 }
 
-#[cfg(test)] mod test;
+mod test;

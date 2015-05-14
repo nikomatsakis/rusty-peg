@@ -1,6 +1,4 @@
-use super::{Error, ErrorKind, Grammar, Input, Kind, NonterminalId, Parser, ParseResult};
-use super::tree::{ParseTree, Span};
-use std::rc::Rc;
+use super::{Error, Grammar, Input, Parser, ParseResult};
 
 // ID :=
 //     "[a-zA-Z]+"
@@ -23,27 +21,91 @@ use std::rc::Rc;
 // "xyz"      ==> regular expression
 // we build a parse tree that keeps each non-terminal
 
-impl<NT:NonterminalId> Parser<NT> for Box<Parser<NT>> {
-    fn parse<'a>(&'a self, grammar: &'a Grammar<NT>, input: Input<'a>) -> ParseResult<'a,NT> {
-        let obj: &Parser<NT> = self;
-        Parser::parse(obj, grammar, input)
+#[derive(Debug)]
+pub struct Or<P1,P2> {
+    pub a: P1,
+    pub b: P2,
+}
+
+impl<P1,P2,R,G> Parser<G> for Or<P1,P2>
+    where P1: Parser<G,Output=R>, P2: Parser<G,Output=R>, G: Grammar
+{
+    type Output = R;
+
+    fn pretty_print(&self) -> String {
+        format!("({} | {})", self.a.pretty_print(), self.b.pretty_print())
+    }
+
+    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+                 -> ParseResult<'a,R>
+    {
+        match self.a.parse(grammar, start) {
+            Ok(success) => Ok(success),
+            Err(_) => self.b.parse(grammar, start)
+        }
     }
 }
 
-pub struct Then<P1,P2> {
-    first: P1,
-    second: P2
+#[derive(Debug)]
+pub struct Join<P1,P2> {
+    pub first: P1,
+    pub second: P2,
 }
 
-impl<P1,P2,NT> Parser<NT> for Then<P1,P2>
-    where P1: Parser<NT>, P2: Parser<NT>
+impl<P1,P2,G> Parser<G> for Join<P1,P2>
+    where P1: Parser<G>, P2: Parser<G>, G: Grammar
 {
-    fn parse<'a>(&'a self, grammar: &'a Grammar<NT>, start: Input<'a>) -> ParseResult<'a,NT> {
-        let (mid, mut first) = try!(self.first.parse(grammar, start));
-        let mid = skip_whitespace(mid);
-        let (end, second) = try!(self.second.parse(grammar, mid));
-        first.sibling = Some(Rc::new(second));
-        Ok((end, first))
+    type Output = (P1::Output, P2::Output);
+
+    fn pretty_print(&self) -> String {
+        format!("{} {}", self.first.pretty_print(), self.second.pretty_print())
+    }
+
+    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+                 -> ParseResult<'a,(P1::Output,P2::Output)>
+    {
+        let (mid, first) = try!(self.first.parse(grammar, start));
+        let (sep, ()) = try!(Whitespace.parse(grammar, mid));
+        let (end, second) = try!(self.second.parse(grammar, sep));
+        Ok((end, (first, second)))
+    }
+}
+
+#[derive(Debug)]
+pub struct Empty;
+
+impl<G> Parser<G> for Empty
+    where G: Grammar
+{
+    type Output = ();
+
+    fn pretty_print(&self) -> String {
+        format!("()")
+    }
+
+    fn parse<'a>(&'a self, _: &'a G, start: Input<'a>)
+                 -> ParseResult<'a,()>
+    {
+        Ok((start, ()))
+    }
+}
+
+#[derive(Debug)]
+pub struct Whitespace;
+
+impl<G> Parser<G> for Whitespace
+    where G: Grammar
+{
+    type Output = ();
+
+    fn pretty_print(&self) -> String {
+        format!("Whitespace")
+    }
+
+    fn parse<'a>(&'a self, _: &'a G, start: Input<'a>)
+                 -> ParseResult<'a,()>
+    {
+        Ok((skip_whitespace(start), ()))
     }
 }
 
@@ -63,6 +125,7 @@ fn skip_whitespace<'a>(mut input: Input<'a>) -> Input<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct Literal {
     text: String
 }
@@ -73,96 +136,88 @@ impl Literal {
     }
 }
 
-impl<NT> Parser<NT> for Literal
-    where NT: NonterminalId
+impl<G> Parser<G> for Literal
+    where G: Grammar
 {
-    fn parse<'a>(&'a self, _: &'a Grammar<NT>, start: Input<'a>) -> ParseResult<'a,NT> {
+    type Output = ();
+
+    fn pretty_print(&self) -> String {
+        format!("\"{}\"", self.text)
+    }
+
+    fn parse<'a>(&'a self, _: &'a G, start: Input<'a>) -> ParseResult<'a,()> {
         if start.text[start.offset..].starts_with(&self.text) {
             let end = start.offset_by(self.text.len());
-            Ok((end, ParseTree::new(Kind::Text, Span::new(start.offset, end.offset), None)))
+            Ok((end, ()))
         } else {
-            Err(Error { kind: ErrorKind::Expected(&self.text),
+            Err(Error { expected: &self.text,
                         offset: start.offset })
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Optional<P> {
     parser: P
 }
 
-impl<NT,P> Parser<NT> for Optional<P>
-    where P: Parser<NT>
+impl<G,P> Parser<G> for Optional<P>
+    where P: Parser<G>, G: Grammar
 {
-    fn parse<'a>(&'a self, grammar: &'a Grammar<NT>, start: Input<'a>) -> ParseResult<'a,NT> {
-        let (end, child) = match self.parser.parse(grammar, start) {
-            Ok((end, result)) => (end, Some(result)),
-            Err(_) => (start, None)
-        };
-        Ok((end, ParseTree::new(Kind::Option,
-                                Span::new(start.offset, end.offset),
-                                child)))
+    type Output = Option<P::Output>;
+
+    fn pretty_print(&self) -> String {
+        format!("[{}]", self.parser.pretty_print())
+    }
+
+    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+                 -> ParseResult<'a,Option<P::Output>>
+    {
+        match self.parser.parse(grammar, start) {
+            Ok((end, result)) => Ok((end, Some(result))),
+            Err(_) => Ok((start, None))
+        }
     }
 }
 
+#[derive(Debug)]
 pub struct Repeat<P> {
-    parser: P
+    parser: P,
+    min: usize,
 }
 
-impl<NT,P> Parser<NT> for Repeat<P>
-    where P: Parser<NT>
+impl<G,P> Parser<G> for Repeat<P>
+    where P: Parser<G>, G: Grammar
 {
-    fn parse<'a>(&'a self, grammar: &'a Grammar<NT>, start: Input<'a>) -> ParseResult<'a,NT> {
+    type Output = Vec<P::Output>;
+
+    fn pretty_print(&self) -> String {
+        match self.min {
+            0 => format!("{{{}}}", self.parser.pretty_print()),
+            1 => format!("{{+ {}}}", self.parser.pretty_print()),
+            _ => format!("{{#{} {}}}", self.min, self.parser.pretty_print()),
+        }
+    }
+
+    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+                 -> ParseResult<'a,Vec<P::Output>>
+    {
         let mut mid = start;
         let mut children = vec![];
         loop {
             match self.parser.parse(grammar, start) {
                 Ok((end, result)) => {
-                    children.push(ParseTree::new(Kind::Elem,
-                                                 Span::new(mid.offset, end.offset),
-                                                 Some(result)));
+                    children.push(result);
                     mid = end;
                 }
-                Err(_) => { break; }
-            }
-        }
-        Ok((mid, ParseTree::new(Kind::Repeat,
-                                Span::new(start.offset, mid.offset),
-                                ParseTree::sibling_chain(children))))
-    }
-}
-
-pub struct Nonterminal<NT> {
-    nonterminal: NT
-}
-
-impl<NT> Parser<NT> for Nonterminal<NT>
-    where NT: NonterminalId
-{
-    fn parse<'a>(&'a self, grammar: &'a Grammar<NT>, start: Input<'a>) -> ParseResult<'a,NT> {
-        let def = &grammar.nonterminals[self.nonterminal.to_usize()];
-        assert!(!def.is_empty());
-        let mut opt_old_err: Option<Error> = None;
-        for parser in def {
-            match parser.parse(grammar, start) {
-                Ok((end, result)) => {
-                    let tree = ParseTree::new(Kind::Nonterminal(self.nonterminal.clone()),
-                                              Span::new(start.offset, end.offset),
-                                              Some(result));
-                    return Ok((end, tree));
-                }
-
-                Err(new_err) => {
-                    if let Some(old_err) = opt_old_err.clone() {
-                        if old_err.offset <= new_err.offset {
-                            opt_old_err = Some(new_err);
-                        }
+                Err(e) => {
+                    if children.len() >= self.min {
+                        return Ok((mid, children));
                     } else {
-                        opt_old_err = Some(new_err);
+                        return Err(e);
                     }
                 }
             }
         }
-        Err(opt_old_err.unwrap())
     }
 }
