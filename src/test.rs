@@ -3,28 +3,14 @@ use util::*;
 
 use std::fmt::Debug;
 
-macro_rules! grammar1 {
-    { $name:ident is { $($grammar_defn:tt)* } } => {
-
-    }
-}
-
 macro_rules! grammar {
-    { $name:ident is { $($nonterminal:ident: $ty:ty = $defn:tt => $body:expr;)* }} => {
+    { $name:ident is { $($grammar_defn:tt)* } } => {
         #[allow(non_snake_case)]
         pub struct $name {
             __dummy: (),
         }
 
         impl Grammar for $name { }
-
-        $(declare_nonterminal!{
-            $name,
-            $ty,
-            $nonterminal,
-            $defn,
-            $body,
-        })*
 
         impl $name {
             fn new() -> $name {
@@ -34,17 +20,31 @@ macro_rules! grammar {
             }
 
             fn pretty_print(&self) -> String {
-                let strings = vec![$(
-                    format!("{:?}={}", $nonterminal, $nonterminal.pretty_print())
-                    ),*];
-                strings.connect(", ")
+                format!("XXX")
             }
         }
+
+        declare_nonterminals! { $name, $($grammar_defn)* }
     }
 }
 
-macro_rules! declare_nonterminal {
-    ($grammar:ident,$ty:ty,$nonterminal:ident,$defn:tt,$body:expr,) => {
+macro_rules! declare_nonterminals {
+    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
+      $($remainder:tt)* ) => {
+        declare_map_nonterminal! { $grammar, $nonterminal, $ty, $defn, $body }
+        declare_nonterminals! { $grammar, $($remainder)* }
+    };
+    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt ;
+      $($remainder:tt)* ) => {
+        declare_identity_nonterminal! { $grammar, $nonterminal, $ty, $defn }
+        declare_nonterminals! { $grammar, $($remainder)* }
+    };
+    ( $grammar:ident, ) => {
+    };
+}
+
+macro_rules! declare_map_nonterminal {
+    ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
         #[derive(Debug)]
         pub struct $nonterminal;
 
@@ -64,14 +64,32 @@ macro_rules! declare_nonterminal {
     }
 }
 
-// "class" name:Id "{" members:{Member} "}" => { .. }
+macro_rules! declare_identity_nonterminal {
+    ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt) => {
+        #[derive(Debug)]
+        pub struct $nonterminal;
+
+        impl Parser<$grammar> for $nonterminal {
+            type Output = $ty;
+
+            fn pretty_print(&self) -> String {
+                format!("{:?}", self)
+            }
+
+            fn parse<'a>(&self, grammar: &'a $grammar, start: Input<'a>) -> ParseResult<'a,$ty> {
+                let parser = item!($defn);
+                Parser::parse(&parser, grammar, start)
+            }
+        }
+    }
+}
 
 macro_rules! items_pattern {
     // XXX this comma should not be needed
-    ( $name:ident : $a:tt, $($bs:tt)* ) => {
+    ( < $name:ident : $a:tt >, $($bs:tt)* ) => {
         ($name, items_pattern!($($bs)*))
     };
-    ( $name:ident : $a:tt ) => {
+    ( < $name:ident : $a:tt > ) => {
         $name
     };
     ( $a:tt, $($bs:tt)* ) => {
@@ -91,6 +109,10 @@ macro_rules! items_pattern {
 macro_rules! item_pattern {
     { ( ) } => {
         ()
+    };
+
+    { ( $tt:tt ) } => {
+        item_pattern!($tt)
     };
 
     { ( $($tt:tt)* ) } => {
@@ -120,10 +142,10 @@ macro_rules! item_pattern {
 
 macro_rules! items {
     // XXX this comma should not be needed
-    ( $name:ident : $a:tt, $($bs:tt)* ) => {
+    ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
         Join { first: item!($a), second: items!($($bs)*), }
     };
-    ( $name:ident : $a:tt ) => {
+    ( < $name:ident : $a:tt > ) => {
         item!($a)
     };
     ( $a:tt, $($bs:tt)* ) => {
@@ -143,6 +165,10 @@ macro_rules! items {
 macro_rules! item {
     { ( ) } => {
         Empty
+    };
+
+    { ( $tt:tt ) } => {
+        item!($tt)
     };
 
     { ( $($tt:tt)* ) } => {
@@ -172,10 +198,16 @@ macro_rules! item {
 
 grammar! {
     Foo is {
-        Hi: u32 = "Hi" => 1;
+        Hi: u32 = ("Hi") => 1;
         Ho: u32 = "Ho" => 2;
 
-        HiOrHo: u32 = (x:(Hi|Ho)) => x;
+        HiOrHo: u32 = (Hi|Ho);
+
+        Sum1: u32 = (<x:HiOrHo>, "+", <y:Sum>) => {
+            x + y*10
+        };
+
+        Sum: u32 = (Sum1 | HiOrHo);
 
         HiHo: () = (
             Hi, Ho
@@ -221,4 +253,10 @@ fn parse_hiorho_from_ho() {
 fn parse_hiho_from_ho() {
     let g = Foo::new();
     assert_eq!((), should_parse_prefix(&g, &HiHo, "Hi Ho"));
+}
+
+#[test]
+fn parse_sum_from_ho() {
+    let g = Foo::new();
+    assert_eq!(1221, should_parse_prefix(&g, &Sum, "Hi + Ho + Ho + Hi"));
 }
