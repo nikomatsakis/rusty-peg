@@ -36,7 +36,7 @@ impl<P1,P2,R,G> Parser<G> for Or<P1,P2>
         format!("({} | {})", self.a.pretty_print(), self.b.pretty_print())
     }
 
-    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+    fn parse<'a>(&self, grammar: &'a G, start: Input<'a>)
                  -> ParseResult<'a,R>
     {
         match self.a.parse(grammar, start) {
@@ -61,7 +61,7 @@ impl<P1,P2,G> Parser<G> for Join<P1,P2>
         format!("{} {}", self.first.pretty_print(), self.second.pretty_print())
     }
 
-    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+    fn parse<'a>(&self, grammar: &'a G, start: Input<'a>)
                  -> ParseResult<'a,(P1::Output,P2::Output)>
     {
         let (mid, first) = try!(self.first.parse(grammar, start));
@@ -83,7 +83,7 @@ impl<G> Parser<G> for Empty
         format!("()")
     }
 
-    fn parse<'a>(&'a self, _: &'a G, start: Input<'a>)
+    fn parse<'a>(&self, _: &'a G, start: Input<'a>)
                  -> ParseResult<'a,()>
     {
         Ok((start, ()))
@@ -102,7 +102,7 @@ impl<G> Parser<G> for Whitespace
         format!("Whitespace")
     }
 
-    fn parse<'a>(&'a self, _: &'a G, start: Input<'a>)
+    fn parse<'a>(&self, _: &'a G, start: Input<'a>)
                  -> ParseResult<'a,()>
     {
         Ok((skip_whitespace(start), ()))
@@ -125,33 +125,22 @@ fn skip_whitespace<'a>(mut input: Input<'a>) -> Input<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct Literal {
-    text: String
-}
-
-impl Literal {
-    pub fn new(s: String) -> Literal {
-        Literal { text: s }
-    }
-}
-
-impl<G> Parser<G> for Literal
+impl<G> Parser<G> for &'static str
     where G: Grammar
 {
     type Output = ();
 
     fn pretty_print(&self) -> String {
-        format!("\"{}\"", self.text)
+        format!("{:?}", self)
     }
 
-    fn parse<'a>(&'a self, _: &'a G, start: Input<'a>) -> ParseResult<'a,()> {
-        if start.text[start.offset..].starts_with(&self.text) {
-            let end = start.offset_by(self.text.len());
+    fn parse<'a>(&self, _: &'a G, start: Input<'a>) -> ParseResult<'a,()> {
+        let text = *self;
+        if start.text[start.offset..].starts_with(text) {
+            let end = start.offset_by(text.len());
             Ok((end, ()))
         } else {
-            Err(Error { expected: &self.text,
-                        offset: start.offset })
+            Err(Error { expected: text, offset: start.offset })
         }
     }
 }
@@ -170,7 +159,7 @@ impl<G,P> Parser<G> for Optional<P>
         format!("[{}]", self.parser.pretty_print())
     }
 
-    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+    fn parse<'a>(&self, grammar: &'a G, start: Input<'a>)
                  -> ParseResult<'a,Option<P::Output>>
     {
         match self.parser.parse(grammar, start) {
@@ -199,7 +188,7 @@ impl<G,P> Parser<G> for Repeat<P>
         }
     }
 
-    fn parse<'a>(&'a self, grammar: &'a G, start: Input<'a>)
+    fn parse<'a>(&self, grammar: &'a G, start: Input<'a>)
                  -> ParseResult<'a,Vec<P::Output>>
     {
         let mut mid = start;

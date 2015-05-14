@@ -3,20 +3,6 @@ use util::*;
 
 use std::fmt::Debug;
 
-trait ToParser {
-    type Parser;
-
-    fn to_parser(self) -> Self::Parser;
-}
-
-impl ToParser for &'static str {
-    type Parser = Literal;
-
-    fn to_parser(self) -> Literal {
-        Literal::new(self.to_string())
-    }
-}
-
 macro_rules! grammar1 {
     { $name:ident is { $($grammar_defn:tt)* } } => {
 
@@ -28,7 +14,6 @@ macro_rules! grammar {
         #[allow(non_snake_case)]
         pub struct $name {
             __dummy: (),
-            $($nonterminal: Box<Parser<$name,Output=$ty>>),+,
         }
 
         impl Grammar for $name { }
@@ -45,13 +30,12 @@ macro_rules! grammar {
             fn new() -> $name {
                 $name {
                     __dummy: (),
-                    $($nonterminal: Box::new(item!($defn))),+,
                 }
             }
 
             fn pretty_print(&self) -> String {
                 let strings = vec![$(
-                    format!("{:?}={}", $nonterminal, self.$nonterminal.pretty_print())
+                    format!("{:?}={}", $nonterminal, $nonterminal.pretty_print())
                     ),*];
                 strings.connect(", ")
             }
@@ -64,11 +48,6 @@ macro_rules! declare_nonterminal {
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl ToParser for $nonterminal {
-            type Parser = $nonterminal;
-            fn to_parser(self) -> $nonterminal { self }
-        }
-
         impl Parser<$grammar> for $nonterminal {
             type Output = $ty;
 
@@ -76,9 +55,9 @@ macro_rules! declare_nonterminal {
                 format!("{:?}", self)
             }
 
-            fn parse<'a>(&'a self, grammar: &'a $grammar, start: Input<'a>) -> ParseResult<'a,$ty> {
-                let (end, item_pattern!($defn)) =
-                    try!(grammar.$nonterminal.parse(grammar, start));
+            fn parse<'a>(&self, grammar: &'a $grammar, start: Input<'a>) -> ParseResult<'a,$ty> {
+                let parser = item!($defn);
+                let (end, item_pattern!($defn)) = try!(Parser::parse(&parser, grammar, start));
                 Ok((end,$body))
             }
         }
@@ -92,7 +71,7 @@ macro_rules! items_pattern {
     ( $name:ident : $a:tt, $($bs:tt)* ) => {
         ($name, items_pattern!($($bs)*))
     };
-    ( $name:ident : a:tt ) => {
+    ( $name:ident : $a:tt ) => {
         $name
     };
     ( $a:tt, $($bs:tt)* ) => {
@@ -144,7 +123,7 @@ macro_rules! items {
     ( $name:ident : $a:tt, $($bs:tt)* ) => {
         Join { first: item!($a), second: items!($($bs)*), }
     };
-    ( $name:ident : a:tt ) => {
+    ( $name:ident : $a:tt ) => {
         item!($a)
     };
     ( $a:tt, $($bs:tt)* ) => {
@@ -187,7 +166,7 @@ macro_rules! item {
     };
 
     { $name:expr } => {
-        ($name).to_parser()
+        $name
     };
 }
 
@@ -196,7 +175,7 @@ grammar! {
         Hi: u32 = "Hi" => 1;
         Ho: u32 = "Ho" => 2;
 
-        HiOrHo: u32 = (Hi|Ho) => 0;
+        HiOrHo: u32 = (x:(Hi|Ho)) => x;
 
         HiHo: () = (
             Hi, Ho
@@ -213,33 +192,33 @@ fn should_parse_prefix<G,P:?Sized>(grammar: &G,
     parser.parse_prefix(grammar, text).unwrap().1
 }
 
-//#[test]
-//fn parse_hi_from_hi() {
-//    let g = Foo::new();
-//    assert_eq!((), should_parse_prefix(&g, &*g.Hi, "Hi"));
-//}
-//
-//#[test]
-//#[should_panic]
-//fn parse_hi_from_ho() {
-//    let g = Foo::new();
-//    assert_eq!((), should_parse_prefix(&g, &*g.Hi, "Ho"));
-//}
-//
-//#[test]
-//fn parse_hiorho_from_hi() {
-//    let g = Foo::new();
-//    assert_eq!((), should_parse_prefix(&g, &*g.HiOrHo, "Hi"));
-//}
-//
-//#[test]
-//fn parse_hiorho_from_ho() {
-//    let g = Foo::new();
-//    assert_eq!((), should_parse_prefix(&g, &*g.HiOrHo, "Ho"));
-//}
-//
-//#[test]
-//fn parse_hiho_from_ho() {
-//    let g = Foo::new();
-//    assert_eq!((), should_parse_prefix(&g, &*g.HiHo, "Hi Ho"));
-//}
+#[test]
+fn parse_hi_from_hi() {
+    let g = Foo::new();
+    assert_eq!(1, should_parse_prefix(&g, &Hi, "Hi"));
+}
+
+#[test]
+#[should_panic]
+fn parse_hi_from_ho() {
+    let g = Foo::new();
+    assert_eq!(2, should_parse_prefix(&g, &Hi, "Ho"));
+}
+
+#[test]
+fn parse_hiorho_from_hi() {
+    let g = Foo::new();
+    assert_eq!(1, should_parse_prefix(&g, &HiOrHo, "Hi"));
+}
+
+#[test]
+fn parse_hiorho_from_ho() {
+    let g = Foo::new();
+    assert_eq!(2, should_parse_prefix(&g, &HiOrHo, "Ho"));
+}
+
+#[test]
+fn parse_hiho_from_ho() {
+    let g = Foo::new();
+    assert_eq!((), should_parse_prefix(&g, &HiHo, "Hi Ho"));
+}

@@ -17,14 +17,14 @@ pub trait Parser<G:Grammar> {
 
     fn pretty_print(&self) -> String;
 
-    fn parse_prefix<'a>(&'a self, grammar: &'a G, text: &'a str)
+    fn parse_prefix<'a>(&self, grammar: &'a G, text: &'a str)
                      -> ParseResult<'a,Self::Output>
     {
         let input = Input { text: text, offset: 0 };
         self.parse(grammar, input)
     }
 
-    fn parse<'a>(&'a self, grammar: &'a G, input: Input<'a>)
+    fn parse<'a>(&self, grammar: &'a G, input: Input<'a>)
                  -> ParseResult<'a,Self::Output>;
 }
 
