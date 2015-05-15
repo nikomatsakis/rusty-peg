@@ -249,11 +249,13 @@ mod silly_grammar {
 }
 
 mod classy {
+    use regex::Regex;
+    use std::collections::HashSet;
     use Parser;
 
     #[derive(Debug)]
     pub struct ClassDefn {
-        name: &'static str,
+        name: String,
         members: Vec<MemberDefn>
     }
 
@@ -265,31 +267,70 @@ mod classy {
 
     #[derive(Debug)]
     pub struct FieldDefn {
-        name: &'static str,
+        name: String,
         ty: TypeRef
     }
 
     #[derive(Debug)]
     pub struct MethodDefn {
-        name: &'static str,
+        name: String,
         arg_tys: Vec<TypeRef>,
         ret_ty: TypeRef
     }
 
     #[derive(Debug)]
     pub struct TypeRef {
-        id: &'static str
+        id: String
     }
 
     #[derive(Debug)]
-    pub struct Classy;
+    pub struct Classy {
+        identifier: Regex,
+        keywords: HashSet<String>,
+    }
+
+    impl Classy {
+        fn new() -> Classy {
+            Classy {
+                identifier: Regex::new("^[a-zA-Z_][a-zA-Z_0-9]*").unwrap(),
+                keywords: vec!["class"].into_iter().map(|x| x.to_string()).collect(),
+            }
+        }
+    }
+
+    #[allow(non_camel_case_types)]
+    #[derive(Debug)]
+    struct ID;
+
+    impl Parser<Classy> for ID {
+        type Output = String;
+
+        fn pretty_print(&self) -> String {
+            format!("{:?}", self)
+        }
+
+        fn parse<'a>(&self,
+                     grammar: &'a Classy,
+                     start: ::Input<'a>)
+                     -> ::ParseResult<'a,String>
+        {
+            match grammar.identifier.find(&start.text[start.offset..]) {
+                Some((_, offset)) => {
+                    let end = start.offset_by(offset);
+                    let matched = &start.text[start.offset..end.offset];
+                    if !grammar.keywords.contains(matched) {
+                        return Ok((end, matched.to_string()));
+                    }
+                }
+                None => { }
+            }
+
+            Err(::Error { expected: "identifier", offset: start.offset })
+        }
+    }
 
     grammar! {
         for Classy {
-            ID: &'static str =
-                ("a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "x" | "y" | "z" |
-                 "u32" | "i32"); // goofy
-
             CLASS: ClassDefn =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
                     ClassDefn { name: name, members: members }
@@ -319,8 +360,9 @@ mod classy {
 
     #[test]
     fn parse_a_class() {
+        let classy = Classy::new();
         CLASS.parse_prefix(
-            &Classy,
+            &classy,
             "class x { f: u32; g: i32; h(i32) -> u32; }").unwrap();
     }
 }
