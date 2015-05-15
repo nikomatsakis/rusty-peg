@@ -128,17 +128,17 @@ fn skip_whitespace<'a>(mut input: Input<'a>) -> Input<'a> {
 impl<G> Parser<G> for &'static str
     where G: Grammar
 {
-    type Output = ();
+    type Output = &'static str;
 
     fn pretty_print(&self) -> String {
         format!("{:?}", self)
     }
 
-    fn parse<'a>(&self, _: &'a G, start: Input<'a>) -> ParseResult<'a,()> {
+    fn parse<'a>(&self, _: &'a G, start: Input<'a>) -> ParseResult<'a,&'static str> {
         let text = *self;
         if start.text[start.offset..].starts_with(text) {
             let end = start.offset_by(text.len());
-            Ok((end, ()))
+            Ok((end, text))
         } else {
             Err(Error { expected: text, offset: start.offset })
         }
@@ -170,13 +170,14 @@ impl<G,P> Parser<G> for Optional<P>
 }
 
 #[derive(Debug)]
-pub struct Repeat<P> {
-    parser: P,
-    min: usize,
+pub struct Repeat<P,S> {
+    pub parser: P,
+    pub separator: S,
+    pub min: usize,
 }
 
-impl<G,P> Parser<G> for Repeat<P>
-    where P: Parser<G>, G: Grammar
+impl<G,P,S> Parser<G> for Repeat<P,S>
+    where P: Parser<G>, G: Grammar, S: Parser<G>
 {
     type Output = Vec<P::Output>;
 
@@ -193,20 +194,33 @@ impl<G,P> Parser<G> for Repeat<P>
     {
         let mut mid = start;
         let mut children = vec![];
+        let mut err;
         loop {
-            match self.parser.parse(grammar, start) {
+            match self.parser.parse(grammar, mid) {
                 Ok((end, result)) => {
                     children.push(result);
-                    mid = end;
-                }
-                Err(e) => {
-                    if children.len() >= self.min {
-                        return Ok((mid, children));
-                    } else {
-                        return Err(e);
+
+                    match self.separator.parse(grammar, end) {
+                        Ok((sep_end, _)) => {
+                            mid = sep_end;
+                        }
+
+                        Err(e) => {
+                            err = e;
+                            break;
+                        }
                     }
                 }
+                Err(e) => {
+                    err = e;
+                    break;
+                }
             }
+        }
+        if children.len() >= self.min {
+            return Ok((mid, children));
+        } else {
+            return Err(err);
         }
     }
 }

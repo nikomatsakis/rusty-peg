@@ -56,8 +56,8 @@ macro_rules! declare_map_nonterminal {
             }
 
             fn parse<'a>(&self, grammar: &'a $grammar, start: Input<'a>) -> ParseResult<'a,$ty> {
-                let parser = item!($defn);
-                let (end, item_pattern!($defn)) = try!(Parser::parse(&parser, grammar, start));
+                let parser = named_item!($defn);
+                let (end, named_item_pat!($defn)) = try!(Parser::parse(&parser, grammar, start));
                 Ok((end,$body))
             }
         }
@@ -84,70 +84,67 @@ macro_rules! declare_identity_nonterminal {
     }
 }
 
-macro_rules! items_pattern {
-    // XXX this comma should not be needed
-    ( < $name:ident : $a:tt >, $($bs:tt)* ) => {
-        ($name, items_pattern!($($bs)*))
+macro_rules! named_item {
+    ( ( $($a:tt)* ) ) => {
+        named_items!($($a)*)
+    };
+    ( $a:tt ) => {
+        item!($a)
+    }
+}
+
+macro_rules! named_items {
+    ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
+        {
+            let bs = named_items!($($bs)*);
+            items!($a, bs)
+        }
+    };
+    ( < $name:ident : $a:tt > ) => {
+        item!($a)
+    };
+    ( $a:tt, $($bs:tt)* ) => {
+        {
+            let bs = named_items!($($bs)*);
+            items!($a, bs)
+        }
+    };
+    ( $a:tt ) => {
+        item!($a)
+    };
+    ( ) => {
+        Empty
+    };
+}
+
+macro_rules! named_item_pat {
+    ( ( $($a:tt)* ) ) => {
+        named_items_pat!($($a)*)
+    };
+    ( $a:tt ) => {
+        _
+    }
+}
+
+macro_rules! named_items_pat {
+    ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
+        ($name, named_items_pat!($($bs)*))
     };
     ( < $name:ident : $a:tt > ) => {
         $name
     };
     ( $a:tt, $($bs:tt)* ) => {
-        (item_pattern!($a), items_pattern!($($bs)*))
-    };
-    ( $a:tt | $($bs:tt)* ) => {
-        item_pattern!($a)
+        (_, named_items_pat!($($bs)*))
     };
     ( $a:tt ) => {
-        item_pattern!($a)
+        _
     };
     ( ) => {
         ()
-    }
-}
-
-macro_rules! item_pattern {
-    { ( ) } => {
-        ()
-    };
-
-    { ( $tt:tt ) } => {
-        item_pattern!($tt)
-    };
-
-    { ( $($tt:tt)* ) } => {
-        items_pattern!($($tt)*)
-    };
-
-    { [ $($tt:tt)* ] } => {
-        _
-    };
-
-    { { + $($tt:tt)* } } => {
-        _
-    };
-
-    { { * $($tt:tt)* } } => {
-        _
-    };
-
-    { { $($tt:tt)* } } => {
-        _
-    };
-
-    { $name:expr } => {
-        _
     };
 }
 
 macro_rules! items {
-    // XXX this comma should not be needed
-    ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
-        Join { first: item!($a), second: items!($($bs)*), }
-    };
-    ( < $name:ident : $a:tt > ) => {
-        item!($a)
-    };
     ( $a:tt, $($bs:tt)* ) => {
         Join { first: item!($a), second: items!($($bs)*), }
     };
@@ -180,15 +177,15 @@ macro_rules! item {
     };
 
     { { + $($tt:tt)* } } => {
-        Repeat { parser: items!($($tt)*), min: 1 }
+        Repeat { parser: items!($($tt)*), min: 1, separator: Whitespace }
     };
 
     { { * $($tt:tt)* } } => {
-        Repeat { parser: items!($($tt)*), min: 0 }
+        Repeat { parser: items!($($tt)*), min: 0, separator: Whitespace }
     };
 
     { { $($tt:tt)* } } => {
-        Repeat { parser: items!($($tt)*), min: 0 }
+        Repeat { parser: items!($($tt)*), min: 0, separator: Whitespace }
     };
 
     { $name:expr } => {
@@ -203,15 +200,12 @@ grammar! {
 
         HiOrHo: u32 = (Hi|Ho);
 
-        Sum1: u32 = (<x:HiOrHo>, "+", <y:Sum>) => {
-            x + y*10
-        };
-
         Sum: u32 = (Sum1 | HiOrHo);
+        Sum1: u32 = (<x:HiOrHo>, "+", <y:Sum>) => {x + y*10};
 
-        HiHo: () = (
-            Hi, Ho
-        ) => ();
+        HiHo: () = (Hi, Ho) => ();
+
+        Rep: Vec<u32> = {HiOrHo};
     }
 }
 
@@ -259,4 +253,10 @@ fn parse_hiho_from_ho() {
 fn parse_sum_from_ho() {
     let g = Foo::new();
     assert_eq!(1221, should_parse_prefix(&g, &Sum, "Hi + Ho + Ho + Hi"));
+}
+
+#[test]
+fn parse_repeat() {
+    let g = Foo::new();
+    assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&g, &Rep, "Hi Ho Ho Hi Ho"));
 }
