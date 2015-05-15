@@ -1,45 +1,28 @@
 macro_rules! grammar {
-    { $name:ident is { $($grammar_defn:tt)* } } => {
-        #[allow(non_snake_case)]
-        pub struct $name {
-            __dummy: (),
-        }
-
-        impl $crate::Grammar for $name { }
-
-        impl $name {
-            fn new() -> $name {
-                $name {
-                    __dummy: (),
-                }
-            }
-
-            fn pretty_print(&self) -> String {
-                format!("XXX")
-            }
-        }
-
-        declare_nonterminals! { $name, $($grammar_defn)* }
+    { for $grammar:ty { $($grammar_defn:tt)* } } => {
+        impl $crate::Grammar for $grammar { }
+        declare_nonterminals! { $grammar, $($grammar_defn)* }
     }
 }
 
 macro_rules! declare_nonterminals {
-    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
+    ( $grammar:ty, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
       $($remainder:tt)* ) => {
         declare_map_nonterminal! { $grammar, $nonterminal, $ty, $defn, $body }
         declare_nonterminals! { $grammar, $($remainder)* }
     };
-    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt ;
+    ( $grammar:ty, $nonterminal:ident: $ty:ty = $defn:tt ;
       $($remainder:tt)* ) => {
         declare_identity_nonterminal! { $grammar, $nonterminal, $ty, $defn }
         declare_nonterminals! { $grammar, $($remainder)* }
     };
-    ( $grammar:ident, ) => {
+    ( $grammar:ty, ) => {
     };
 }
 
 macro_rules! declare_map_nonterminal {
-    ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
+    ($grammar:ty, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
+        #[allow(non_camel_case_types)]
         #[derive(Debug)]
         pub struct $nonterminal;
 
@@ -65,7 +48,8 @@ macro_rules! declare_map_nonterminal {
 }
 
 macro_rules! declare_identity_nonterminal {
-    ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt) => {
+    ($grammar:ty, $nonterminal:ident, $ty:ty, $defn:tt) => {
+        #[allow(non_camel_case_types)]
         #[derive(Debug)]
         pub struct $nonterminal;
 
@@ -200,8 +184,10 @@ macro_rules! item {
 }
 
 mod silly_grammar {
+    pub struct Foo;
+
     grammar! {
-        Foo is {
+        for Foo {
             Hi: u32 = ("Hi") => 1;
             Ho: u32 = "Ho" => 2;
 
@@ -227,45 +213,115 @@ mod silly_grammar {
 
     #[test]
     fn parse_hi_from_hi() {
-        let g = Foo::new();
-        assert_eq!(1, should_parse_prefix(&g, &Hi, "Hi"));
+        assert_eq!(1, should_parse_prefix(&Foo, &Hi, "Hi"));
     }
 
     #[test]
     #[should_panic]
     fn parse_hi_from_ho() {
-        let g = Foo::new();
-        assert_eq!(2, should_parse_prefix(&g, &Hi, "Ho"));
+        assert_eq!(2, should_parse_prefix(&Foo, &Hi, "Ho"));
     }
 
     #[test]
     fn parse_hiorho_from_hi() {
-        let g = Foo::new();
-        assert_eq!(1, should_parse_prefix(&g, &HiOrHo, "Hi"));
+        assert_eq!(1, should_parse_prefix(&Foo, &HiOrHo, "Hi"));
     }
 
     #[test]
     fn parse_hiorho_from_ho() {
-        let g = Foo::new();
-        assert_eq!(2, should_parse_prefix(&g, &HiOrHo, "Ho"));
+        assert_eq!(2, should_parse_prefix(&Foo, &HiOrHo, "Ho"));
     }
 
     #[test]
     fn parse_hiho_from_ho() {
-        let g = Foo::new();
-        assert_eq!((), should_parse_prefix(&g, &HiHo, "Hi Ho"));
+        assert_eq!((), should_parse_prefix(&Foo, &HiHo, "Hi Ho"));
     }
 
     #[test]
     fn parse_sum_from_ho() {
-        let g = Foo::new();
-        assert_eq!(1221, should_parse_prefix(&g, &Sum, "Hi + Ho + Ho + Hi"));
+        assert_eq!(1221, should_parse_prefix(&Foo, &Sum, "Hi + Ho + Ho + Hi"));
     }
 
     #[test]
     fn parse_repeat() {
-        let g = Foo::new();
-        assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&g, &Rep, "Hi Ho Ho Hi Ho"));
+        assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&Foo, &Rep, "Hi Ho Ho Hi Ho"));
+    }
+}
+
+mod classy {
+    use Parser;
+
+    #[derive(Debug)]
+    pub struct ClassDefn {
+        name: &'static str,
+        members: Vec<MemberDefn>
+    }
+
+    #[derive(Debug)]
+    pub enum MemberDefn {
+        Field(Box<FieldDefn>),
+        Method(Box<MethodDefn>),
+    }
+
+    #[derive(Debug)]
+    pub struct FieldDefn {
+        name: &'static str,
+        ty: TypeRef
+    }
+
+    #[derive(Debug)]
+    pub struct MethodDefn {
+        name: &'static str,
+        arg_tys: Vec<TypeRef>,
+        ret_ty: TypeRef
+    }
+
+    #[derive(Debug)]
+    pub struct TypeRef {
+        id: &'static str
+    }
+
+    #[derive(Debug)]
+    pub struct Classy;
+
+    grammar! {
+        for Classy {
+            ID: &'static str =
+                ("a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "x" | "y" | "z" |
+                 "u32" | "i32"); // goofy
+
+            CLASS: ClassDefn =
+                ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
+                    ClassDefn { name: name, members: members }
+                };
+
+            MEMBER: MemberDefn =
+                (FIELD_DEFN | METHOD_DEFN);
+
+            FIELD_DEFN: MemberDefn =
+                (<name:ID>, ":", <ty:TYPE_REF>, ";") => {
+                    MemberDefn::Field(Box::new(
+                        FieldDefn { name: name, ty: ty }))
+                };
+
+            TYPE_REF: TypeRef =
+                (<id:ID>) => {
+                    TypeRef { id: id }
+                };
+
+            METHOD_DEFN: MemberDefn =
+                (<name:ID>, "(", <args:{TYPE_REF}>, ")", "->", <ret:TYPE_REF>, ";") => {
+                    MemberDefn::Method(Box::new(
+                        MethodDefn { name: name, arg_tys: args, ret_ty: ret }))
+                };
+        }
+    }
+
+    #[test]
+    fn parse_a_class() {
+        CLASS.parse_prefix(
+            &Classy,
+            "class x { f: u32; g: i32; h(i32) -> u32; }").unwrap();
     }
 }
 
