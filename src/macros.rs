@@ -37,7 +37,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
             }
 
             fn parse<'a>(&self,
-                         grammar: &'a $grammar,
+                         grammar: &mut $grammar,
                          start: $crate::Input<'a>)
                          -> $crate::ParseResult<'a,$ty>
             {
@@ -65,7 +65,7 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
             }
 
             fn parse<'a>(&self,
-                         grammar: &'a $grammar,
+                         grammar: &mut $grammar,
                          start: $crate::Input<'a>)
                          -> $crate::ParseResult<'a,$ty> {
                              let parser = rusty_peg_item!($defn);

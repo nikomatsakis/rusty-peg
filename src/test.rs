@@ -17,7 +17,7 @@ mod silly_grammar {
         }
     }
 
-    fn should_parse_prefix<G,P:?Sized>(grammar: &G,
+    fn should_parse_prefix<G,P:?Sized>(grammar: &mut G,
                                        parser: &P,
                                        text: &str)
                                        -> P::Output
@@ -28,38 +28,38 @@ mod silly_grammar {
 
     #[test]
     fn parse_hi_from_hi() {
-        assert_eq!(1, should_parse_prefix(&Foo, &Hi, "Hi"));
+        assert_eq!(1, should_parse_prefix(&mut Foo, &Hi, "Hi"));
     }
 
     #[test]
     #[should_panic]
     fn parse_hi_from_ho() {
-        assert_eq!(2, should_parse_prefix(&Foo, &Hi, "Ho"));
+        assert_eq!(2, should_parse_prefix(&mut Foo, &Hi, "Ho"));
     }
 
     #[test]
     fn parse_hiorho_from_hi() {
-        assert_eq!(1, should_parse_prefix(&Foo, &HiOrHo, "Hi"));
+        assert_eq!(1, should_parse_prefix(&mut Foo, &HiOrHo, "Hi"));
     }
 
     #[test]
     fn parse_hiorho_from_ho() {
-        assert_eq!(2, should_parse_prefix(&Foo, &HiOrHo, "Ho"));
+        assert_eq!(2, should_parse_prefix(&mut Foo, &HiOrHo, "Ho"));
     }
 
     #[test]
     fn parse_hiho_from_ho() {
-        assert_eq!((), should_parse_prefix(&Foo, &HiHo, "Hi Ho"));
+        assert_eq!((), should_parse_prefix(&mut Foo, &HiHo, "Hi Ho"));
     }
 
     #[test]
     fn parse_sum_from_ho() {
-        assert_eq!(1221, should_parse_prefix(&Foo, &Sum, "Hi + Ho + Ho + Hi"));
+        assert_eq!(1221, should_parse_prefix(&mut Foo, &Sum, "Hi + Ho + Ho + Hi"));
     }
 
     #[test]
     fn parse_repeat() {
-        assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&Foo, &Rep, "Hi Ho Ho Hi Ho"));
+        assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&mut Foo, &Rep, "Hi Ho Ho Hi Ho"));
     }
 }
 
@@ -125,7 +125,7 @@ mod classy {
         }
 
         fn parse<'a>(&self,
-                     grammar: &'a Classy,
+                     grammar: &mut Classy,
                      start: ::Input<'a>)
                      -> ::ParseResult<'a,String>
         {
@@ -175,10 +175,10 @@ mod classy {
 
     #[test]
     fn parse_a_class() {
-        let classy = Classy::new();
+        let mut classy = Classy::new();
         let (_, result) =
             CLASS.parse_prefix(
-                &classy,
+                &mut classy,
                 "class x { f: u32; g: i32; h(i32) -> u32; }").unwrap();
 
         assert_eq!(
