@@ -1,4 +1,6 @@
 mod silly_grammar {
+    use {Grammar, Parser};
+
     pub struct Foo;
 
     rusty_peg_grammar! {
@@ -17,11 +19,12 @@ mod silly_grammar {
         }
     }
 
-    fn should_parse_prefix<G,P:?Sized>(grammar: &mut G,
-                                       parser: &P,
-                                       text: &str)
-                                       -> P::Output
-        where G: ::Grammar, P: ::Parser<G>
+    fn should_parse_prefix<'input,G,P:?Sized>(
+        grammar: &mut G,
+        parser: &P,
+        text: &'input str)
+        -> P::Output
+        where G: Grammar, P: Parser<'input,G>
     {
         parser.parse_prefix(grammar, text).unwrap().1
     }
@@ -117,17 +120,17 @@ mod classy {
     #[derive(Debug)]
     struct ID;
 
-    impl Parser<Classy> for ID {
+    impl<'input> Parser<'input,Classy> for ID {
         type Output = String;
 
         fn pretty_print(&self) -> String {
             format!("{:?}", self)
         }
 
-        fn parse<'a>(&self,
-                     grammar: &mut Classy,
-                     start: ::Input<'a>)
-                     -> ::ParseResult<'a,String>
+        fn parse(&self,
+                 grammar: &mut Classy,
+                 start: ::Input<'input>)
+                 -> ::ParseResult<'input,String>
         {
             match grammar.identifier.find(&start.text[start.offset..]) {
                 Some((_, offset)) => {

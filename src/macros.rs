@@ -29,17 +29,17 @@ macro_rules! rusty_peg_declare_map_nonterminal {
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl $crate::Parser<$grammar> for $nonterminal {
+        impl<'input> $crate::Parser<'input,$grammar> for $nonterminal {
             type Output = $ty;
 
             fn pretty_print(&self) -> String {
                 format!("{:?}", self)
             }
 
-            fn parse<'a>(&self,
-                         grammar: &mut $grammar,
-                         start: $crate::Input<'a>)
-                         -> $crate::ParseResult<'a,$ty>
+            fn parse(&self,
+                     grammar: &mut $grammar,
+                     start: $crate::Input<'input>)
+                     -> $crate::ParseResult<'input,$ty>
             {
                 let parser = rusty_peg_named_item!($defn);
                 let (end, rusty_peg_named_item_pat!($defn)) =
@@ -57,20 +57,21 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl $crate::Parser<$grammar> for $nonterminal {
+        impl<'input> $crate::Parser<'input,$grammar> for $nonterminal {
             type Output = $ty;
 
             fn pretty_print(&self) -> String {
                 format!("{:?}", self)
             }
 
-            fn parse<'a>(&self,
-                         grammar: &mut $grammar,
-                         start: $crate::Input<'a>)
-                         -> $crate::ParseResult<'a,$ty> {
-                             let parser = rusty_peg_item!($defn);
-                             $crate::Parser::parse(&parser, grammar, start)
-                         }
+            fn parse(&self,
+                     grammar: &mut $grammar,
+                     start: $crate::Input<'input>)
+                     -> $crate::ParseResult<'input,$ty>
+            {
+                let parser = rusty_peg_item!($defn);
+                $crate::Parser::parse(&parser, grammar, start)
+            }
         }
     }
 }

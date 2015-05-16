@@ -12,23 +12,23 @@ pub struct Input<'a> {
     offset: usize,
 }
 
-pub trait Parser<G:Grammar> {
+pub trait Parser<'input, G:Grammar> {
     type Output;
 
     fn pretty_print(&self) -> String;
 
-    fn parse_prefix<'a>(&self, grammar: &'a mut G, text: &'a str)
-                     -> ParseResult<'a,Self::Output>
+    fn parse_prefix(&self, grammar: &mut G, text: &'input str)
+                     -> ParseResult<'input,Self::Output>
     {
         let input = Input { text: text, offset: 0 };
         self.parse(grammar, input)
     }
 
-    fn parse<'a>(&self, grammar: &mut G, input: Input<'a>)
-                 -> ParseResult<'a,Self::Output>;
+    fn parse(&self, grammar: &mut G, input: Input<'input>)
+                 -> ParseResult<'input,Self::Output>;
 }
 
-pub type ParseResult<'a,O> = Result<(Input<'a>, O), Error<'a>>;
+pub type ParseResult<'input,O> = Result<(Input<'input>, O), Error<'input>>;
 
 pub enum Kind<NT> {
     Text,
@@ -40,8 +40,8 @@ pub enum Kind<NT> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Error<'a> {
-    expected: &'a str,
+pub struct Error<'input> {
+    expected: &'input str,
     offset: usize
 }
 
@@ -50,8 +50,8 @@ pub mod macros;
 pub mod util;
 pub mod tree;
 
-impl<'a> Input<'a> {
-    fn offset_by(&self, amount: usize) -> Input<'a> {
+impl<'input> Input<'input> {
+    fn offset_by(&self, amount: usize) -> Input<'input> {
         Input { text: self.text, offset: self.offset + amount }
     }
 }
