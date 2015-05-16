@@ -1,26 +1,26 @@
-macro_rules! grammar {
+macro_rules! rusty_peg_grammar {
     { for $grammar:ty { $($grammar_defn:tt)* } } => {
         impl $crate::Grammar for $grammar { }
-        declare_nonterminals! { $grammar, $($grammar_defn)* }
+        rusty_peg_declare_nonterminals! { $grammar, $($grammar_defn)* }
     }
 }
 
-macro_rules! declare_nonterminals {
+macro_rules! rusty_peg_declare_nonterminals {
     ( $grammar:ty, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
       $($remainder:tt)* ) => {
-        declare_map_nonterminal! { $grammar, $nonterminal, $ty, $defn, $body }
-        declare_nonterminals! { $grammar, $($remainder)* }
+        rusty_peg_declare_map_nonterminal! { $grammar, $nonterminal, $ty, $defn, $body }
+        rusty_peg_declare_nonterminals! { $grammar, $($remainder)* }
     };
     ( $grammar:ty, $nonterminal:ident: $ty:ty = $defn:tt ;
       $($remainder:tt)* ) => {
-        declare_identity_nonterminal! { $grammar, $nonterminal, $ty, $defn }
-        declare_nonterminals! { $grammar, $($remainder)* }
+        rusty_peg_declare_identity_nonterminal! { $grammar, $nonterminal, $ty, $defn }
+        rusty_peg_declare_nonterminals! { $grammar, $($remainder)* }
     };
     ( $grammar:ty, ) => {
     };
 }
 
-macro_rules! declare_map_nonterminal {
+macro_rules! rusty_peg_declare_map_nonterminal {
     ($grammar:ty, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
         #[allow(non_camel_case_types)]
         #[derive(Debug)]
@@ -38,8 +38,8 @@ macro_rules! declare_map_nonterminal {
                          start: $crate::Input<'a>)
                          -> $crate::ParseResult<'a,$ty>
             {
-                let parser = named_item!($defn);
-                let (end, named_item_pat!($defn)) =
+                let parser = rusty_peg_named_item!($defn);
+                let (end, rusty_peg_named_item_pat!($defn)) =
                     try!($crate::Parser::parse(&parser, grammar, start));
                 Ok((end,$body))
             }
@@ -47,7 +47,7 @@ macro_rules! declare_map_nonterminal {
     }
 }
 
-macro_rules! declare_identity_nonterminal {
+macro_rules! rusty_peg_declare_identity_nonterminal {
     ($grammar:ty, $nonterminal:ident, $ty:ty, $defn:tt) => {
         #[allow(non_camel_case_types)]
         #[derive(Debug)]
@@ -64,64 +64,64 @@ macro_rules! declare_identity_nonterminal {
                          grammar: &'a $grammar,
                          start: $crate::Input<'a>)
                          -> $crate::ParseResult<'a,$ty> {
-                             let parser = item!($defn);
+                             let parser = rusty_peg_item!($defn);
                              $crate::Parser::parse(&parser, grammar, start)
                          }
         }
     }
 }
 
-macro_rules! named_item {
+macro_rules! rusty_peg_named_item {
     ( ( $($a:tt)* ) ) => {
-        named_items!($($a)*)
+        rusty_peg_named_items!($($a)*)
     };
     ( $a:tt ) => {
-        item!($a)
+        rusty_peg_item!($a)
     }
 }
 
-macro_rules! named_items {
+macro_rules! rusty_peg_named_items {
     ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
         {
-            let bs = named_items!($($bs)*);
-            items!($a, bs)
+            let bs = rusty_peg_named_items!($($bs)*);
+            rusty_peg_items!($a, bs)
         }
     };
     ( < $name:ident : $a:tt > ) => {
-        item!($a)
+        rusty_peg_item!($a)
     };
     ( $a:tt, $($bs:tt)* ) => {
         {
-            let bs = named_items!($($bs)*);
-            items!($a, bs)
+            let bs = rusty_peg_named_items!($($bs)*);
+            rusty_peg_items!($a, bs)
         }
     };
     ( $a:tt ) => {
-        item!($a)
+        rusty_peg_item!($a)
     };
     ( ) => {
         Empty
     };
 }
 
-macro_rules! named_item_pat {
+macro_rules! rusty_peg_named_item_pat {
     ( ( $($a:tt)* ) ) => {
-        named_items_pat!($($a)*)
+        rusty_peg_named_items_pat!($($a)*)
     };
     ( $a:tt ) => {
         _
     }
 }
 
-macro_rules! named_items_pat {
+macro_rules! rusty_peg_named_items_pat {
     ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
-        ($name, named_items_pat!($($bs)*))
+        ($name, rusty_peg_named_items_pat!($($bs)*))
     };
     ( < $name:ident : $a:tt > ) => {
         $name
     };
     ( $a:tt, $($bs:tt)* ) => {
-        (_, named_items_pat!($($bs)*))
+        (_, rusty_peg_named_items_pat!($($bs)*))
     };
     ( $a:tt ) => {
         _
@@ -131,50 +131,50 @@ macro_rules! named_items_pat {
     };
 }
 
-macro_rules! items {
+macro_rules! rusty_peg_items {
     ( $a:tt, $($bs:tt)* ) => {
-        $crate::util::Join { first: item!($a), second: items!($($bs)*), }
+        $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs)*), }
     };
     ( $a:tt | $($bs:tt)* ) => {
-        $crate::util::Or { a: item!($a), b: items!($($bs)*) }
+        $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs)*) }
     };
     ( $a:tt ) => {
-        item!($a)
+        rusty_peg_item!($a)
     };
     ( ) => {
         Empty
     }
 }
 
-macro_rules! item {
+macro_rules! rusty_peg_item {
     { ( ) } => {
         Empty
     };
 
     { ( $tt:tt ) } => {
-        item!($tt)
+        rusty_peg_item!($tt)
     };
 
     { ( $($tt:tt)* ) } => {
-        items!($($tt)*)
+        rusty_peg_items!($($tt)*)
     };
 
     { [ $($tt:tt)* ] } => {
-        $crate::util::Optional { parser: items!($($tt)*) }
+        $crate::util::Optional { parser: rusty_peg_items!($($tt)*) }
     };
 
     { { + $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: items!($($tt)*), min: 1,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt)*), min: 1,
                                separator: $crate::util::Whitespace }
     };
 
     { { * $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: items!($($tt)*), min: 0,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt)*), min: 0,
                                separator: $crate::util::Whitespace }
     };
 
     { { $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: items!($($tt)*), min: 0,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt)*), min: 0,
                                separator: $crate::util::Whitespace }
     };
 
@@ -186,7 +186,7 @@ macro_rules! item {
 mod silly_grammar {
     pub struct Foo;
 
-    grammar! {
+    rusty_peg_grammar! {
         for Foo {
             Hi: u32 = ("Hi") => 1;
             Ho: u32 = "Ho" => 2;
@@ -329,7 +329,7 @@ mod classy {
         }
     }
 
-    grammar! {
+    rusty_peg_grammar! {
         for Classy {
             CLASS: ClassDefn =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
@@ -361,9 +361,51 @@ mod classy {
     #[test]
     fn parse_a_class() {
         let classy = Classy::new();
-        CLASS.parse_prefix(
-            &classy,
-            "class x { f: u32; g: i32; h(i32) -> u32; }").unwrap();
+        let (_, result) =
+            CLASS.parse_prefix(
+                &classy,
+                "class x { f: u32; g: i32; h(i32) -> u32; }").unwrap();
+
+        assert_eq!(
+            normalize_space(&format!("{:#?}", result)),
+            normalize_space("ClassDefn {
+                name: \"x\",
+                members: [
+                    Field(
+                        FieldDefn {
+                            name: \"f\",
+                            ty: TypeRef {
+                                id: \"u32\"
+                            }
+                        }
+                        ),
+                    Field(
+                        FieldDefn {
+                            name: \"g\",
+                            ty: TypeRef {
+                                id: \"i32\"
+                            }
+                        }
+                        ),
+                    Method(
+                        MethodDefn {
+                            name: \"h\",
+                            arg_tys: [
+                                TypeRef {
+                                    id: \"i32\"
+                                }
+                                ],
+                            ret_ty: TypeRef {
+                                id: \"u32\"
+                            }
+                        }
+                        )
+                    ]
+            }"));
+    }
+
+    fn normalize_space(text: &str) {
+        Regex::new(r"\s+").unwrap().replace_all(text, " ");
     }
 }
 
