@@ -45,6 +45,8 @@ pub struct Error<'a> {
     offset: usize
 }
 
+#[macro_use]
+pub mod macros;
 pub mod util;
 pub mod tree;
 
