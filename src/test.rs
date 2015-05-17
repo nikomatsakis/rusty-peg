@@ -1,10 +1,10 @@
 mod silly_grammar {
-    use {Grammar, Parser};
+    use Symbol;
 
     pub struct Foo;
 
     rusty_peg_grammar! {
-        for Foo {
+        nonterminals for Foo {
             Hi: u32 = ("Hi") => 1;
             Ho: u32 = "Ho" => 2;
 
@@ -24,7 +24,7 @@ mod silly_grammar {
         parser: &P,
         text: &'input str)
         -> P::Output
-        where G: Grammar, P: Parser<'input,G>
+        where P: Symbol<'input,G>
     {
         parser.parse_prefix(grammar, text).unwrap().1
     }
@@ -69,36 +69,36 @@ mod silly_grammar {
 mod classy {
     use regex::Regex;
     use std::collections::HashSet;
-    use Parser;
+    use Symbol;
 
     #[derive(Debug)]
-    pub struct ClassDefn {
-        name: String,
-        members: Vec<MemberDefn>
+    pub struct ClassDefn<'input> {
+        name: &'input str,
+        members: Vec<MemberDefn<'input>>
     }
 
     #[derive(Debug)]
-    pub enum MemberDefn {
-        Field(Box<FieldDefn>),
-        Method(Box<MethodDefn>),
+    pub enum MemberDefn<'input> {
+        Field(Box<FieldDefn<'input>>),
+        Method(Box<MethodDefn<'input>>),
     }
 
     #[derive(Debug)]
-    pub struct FieldDefn {
-        name: String,
-        ty: TypeRef
+    pub struct FieldDefn<'input> {
+        name: &'input str,
+        ty: TypeRef<'input>
     }
 
     #[derive(Debug)]
-    pub struct MethodDefn {
-        name: String,
-        arg_tys: Vec<TypeRef>,
-        ret_ty: TypeRef
+    pub struct MethodDefn<'input> {
+        name: &'input str,
+        arg_tys: Vec<TypeRef<'input>>,
+        ret_ty: TypeRef<'input>
     }
 
     #[derive(Debug)]
-    pub struct TypeRef {
-        id: String
+    pub struct TypeRef<'input> {
+        id: &'input str
     }
 
     #[derive(Debug)]
@@ -120,8 +120,8 @@ mod classy {
     #[derive(Debug)]
     struct ID;
 
-    impl<'input> Parser<'input,Classy> for ID {
-        type Output = String;
+    impl<'input> Symbol<'input,Classy> for ID {
+        type Output = &'input str;
 
         fn pretty_print(&self) -> String {
             format!("{:?}", self)
@@ -130,14 +130,14 @@ mod classy {
         fn parse(&self,
                  grammar: &mut Classy,
                  start: ::Input<'input>)
-                 -> ::ParseResult<'input,String>
+                 -> ::ParseResult<'input,&'input str>
         {
             match grammar.identifier.find(&start.text[start.offset..]) {
                 Some((_, offset)) => {
                     let end = start.offset_by(offset);
                     let matched = &start.text[start.offset..end.offset];
                     if !grammar.keywords.contains(matched) {
-                        return Ok((end, matched.to_string()));
+                        return Ok((end, matched));
                     }
                 }
                 None => { }
@@ -148,27 +148,27 @@ mod classy {
     }
 
     rusty_peg_grammar! {
-        for Classy {
-            CLASS: ClassDefn =
+        nonterminals for Classy {
+            CLASS: ClassDefn<'input> =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
                     ClassDefn { name: name, members: members }
                 };
 
-            MEMBER: MemberDefn =
+            MEMBER: MemberDefn<'input> =
                 (FIELD_DEFN | METHOD_DEFN);
 
-            FIELD_DEFN: MemberDefn =
+            FIELD_DEFN: MemberDefn<'input> =
                 (<name:ID>, ":", <ty:TYPE_REF>, ";") => {
                     MemberDefn::Field(Box::new(
                         FieldDefn { name: name, ty: ty }))
                 };
 
-            TYPE_REF: TypeRef =
+            TYPE_REF: TypeRef<'input> =
                 (<id:ID>) => {
                     TypeRef { id: id }
                 };
 
-            METHOD_DEFN: MemberDefn =
+            METHOD_DEFN: MemberDefn<'input> =
                 (<name:ID>, "(", <args:{TYPE_REF}>, ")", "->", <ret:TYPE_REF>, ";") => {
                     MemberDefn::Method(Box::new(
                         MethodDefn { name: name, arg_tys: args, ret_ty: ret }))

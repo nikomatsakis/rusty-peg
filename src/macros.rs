@@ -1,7 +1,6 @@
 #[macro_export]
 macro_rules! rusty_peg_grammar {
-    { for $grammar:ty { $($grammar_defn:tt)* } } => {
-        impl $crate::Grammar for $grammar { }
+    { nonterminals for $grammar:ty { $($grammar_defn:tt)* } } => {
         rusty_peg_declare_nonterminals! { $grammar, $($grammar_defn)* }
     }
 }
@@ -29,7 +28,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl<'input> $crate::Parser<'input,$grammar> for $nonterminal {
+        impl<'input> $crate::Symbol<'input,$grammar> for $nonterminal {
             type Output = $ty;
 
             fn pretty_print(&self) -> String {
@@ -43,7 +42,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
             {
                 let parser = rusty_peg_named_item!($defn);
                 let (end, rusty_peg_named_item_pat!($defn)) =
-                    try!($crate::Parser::parse(&parser, grammar, start));
+                    try!($crate::Symbol::parse(&parser, grammar, start));
                 Ok((end,$body))
             }
         }
@@ -57,7 +56,7 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl<'input> $crate::Parser<'input,$grammar> for $nonterminal {
+        impl<'input> $crate::Symbol<'input,$grammar> for $nonterminal {
             type Output = $ty;
 
             fn pretty_print(&self) -> String {
@@ -70,7 +69,7 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
                      -> $crate::ParseResult<'input,$ty>
             {
                 let parser = rusty_peg_item!($defn);
-                $crate::Parser::parse(&parser, grammar, start)
+                $crate::Symbol::parse(&parser, grammar, start)
             }
         }
     }

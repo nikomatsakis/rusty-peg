@@ -1,4 +1,6 @@
-use super::{Error, Grammar, Input, Parser, ParseResult};
+use super::{Error, Input, Symbol, ParseResult};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 // ID :=
 //     "[a-zA-Z]+"
@@ -22,13 +24,13 @@ use super::{Error, Grammar, Input, Parser, ParseResult};
 // we build a parse tree that keeps each non-terminal
 
 #[derive(Debug)]
-pub struct Or<P1,P2> {
-    pub a: P1,
+pub struct Or<NT1,P2> {
+    pub a: NT1,
     pub b: P2,
 }
 
-impl<'input,P1,P2,R,G> Parser<'input,G> for Or<P1,P2>
-    where P1: Parser<'input,G,Output=R>, P2: Parser<'input,G,Output=R>, G: Grammar
+impl<'input,NT1,P2,R,G> Symbol<'input,G> for Or<NT1,P2>
+    where NT1: Symbol<'input,G,Output=R>, P2: Symbol<'input,G,Output=R>
 {
     type Output = R;
 
@@ -49,22 +51,22 @@ impl<'input,P1,P2,R,G> Parser<'input,G> for Or<P1,P2>
 }
 
 #[derive(Debug)]
-pub struct Join<P1,P2> {
-    pub first: P1,
+pub struct Join<NT1,P2> {
+    pub first: NT1,
     pub second: P2,
 }
 
-impl<'input,P1,P2,G> Parser<'input,G> for Join<P1,P2>
-    where P1: Parser<'input,G>, P2: Parser<'input,G>, G: Grammar
+impl<'input,NT1,P2,G> Symbol<'input,G> for Join<NT1,P2>
+    where NT1: Symbol<'input,G>, P2: Symbol<'input,G>
 {
-    type Output = (P1::Output, P2::Output);
+    type Output = (NT1::Output, P2::Output);
 
     fn pretty_print(&self) -> String {
         format!("{} {}", self.first.pretty_print(), self.second.pretty_print())
     }
 
     fn parse(&self, grammar: &mut G, start: Input<'input>)
-                 -> ParseResult<'input,(P1::Output,P2::Output)>
+                 -> ParseResult<'input,(NT1::Output,P2::Output)>
     {
         let (mid, first) = try!(self.first.parse(grammar, start));
         let (sep, ()) = try!(Whitespace.parse(grammar, mid));
@@ -76,9 +78,7 @@ impl<'input,P1,P2,G> Parser<'input,G> for Join<P1,P2>
 #[derive(Debug)]
 pub struct Empty;
 
-impl<'input,G> Parser<'input,G> for Empty
-    where G: Grammar
-{
+impl<'input,G> Symbol<'input,G> for Empty {
     type Output = ();
 
     fn pretty_print(&self) -> String {
@@ -95,9 +95,7 @@ impl<'input,G> Parser<'input,G> for Empty
 #[derive(Debug)]
 pub struct Whitespace;
 
-impl<'input,G> Parser<'input,G> for Whitespace
-    where G: Grammar
-{
+impl<'input,G> Symbol<'input,G> for Whitespace {
     type Output = ();
 
     fn pretty_print(&self) -> String {
@@ -127,9 +125,7 @@ fn skip_whitespace<'input>(mut input: Input<'input>) -> Input<'input> {
     }
 }
 
-impl<'input,G> Parser<'input,G> for &'static str
-    where G: Grammar
-{
+impl<'input,G> Symbol<'input,G> for &'static str {
     type Output = &'static str;
 
     fn pretty_print(&self) -> String {
@@ -152,8 +148,8 @@ pub struct Optional<P> {
     parser: P
 }
 
-impl<'input,G,P> Parser<'input,G> for Optional<P>
-    where P: Parser<'input,G>, G: Grammar
+impl<'input,G,P> Symbol<'input,G> for Optional<P>
+    where P: Symbol<'input,G>
 {
     type Output = Option<P::Output>;
 
@@ -178,8 +174,8 @@ pub struct Repeat<P,S> {
     pub min: usize,
 }
 
-impl<'input,G,P,S> Parser<'input,G> for Repeat<P,S>
-    where P: Parser<'input,G>, G: Grammar, S: Parser<'input,G>
+impl<'input,G,P,S> Symbol<'input,G> for Repeat<P,S>
+    where P: Symbol<'input,G>, S: Symbol<'input,G>
 {
     type Output = Vec<P::Output>;
 

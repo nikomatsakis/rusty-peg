@@ -3,16 +3,13 @@
 
 extern crate regex;
 
-pub trait Grammar {
-}
-
 #[derive(Copy,Clone)]
 pub struct Input<'a> {
     text: &'a str,
     offset: usize,
 }
 
-pub trait Parser<'input, G:Grammar> {
+pub trait Symbol<'input, G> {
     type Output;
 
     fn pretty_print(&self) -> String;
@@ -36,7 +33,7 @@ pub enum Kind<NT> {
     Repeat,
     Elem,
     Group,
-    Nonterminal(NT)
+    Symbol(NT)
 }
 
 #[derive(Clone, Debug)]
