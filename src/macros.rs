@@ -1,5 +1,20 @@
 #[macro_export]
 macro_rules! rusty_peg {
+    { parser $name:ident<'input>: $base:ty { $($grammar_defn:tt)* } } => {
+        rusty_peg_parser! {
+            parser $name: $base { $($grammar_defn)* }
+        }
+    };
+
+    { parser $name:ident<'input> { $($grammar_defn:tt)* } } => {
+        rusty_peg_parser! {
+            parser $name: () { $($grammar_defn)* }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! rusty_peg_parser {
     { parser $name:ident: $base:ty { $($grammar_defn:tt)* } } => {
         rusty_peg_with_nonterminals! {
             rusty_peg_declare_parser(($name) ($base)); $($grammar_defn)*
