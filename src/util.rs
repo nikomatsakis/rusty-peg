@@ -1,5 +1,8 @@
 use super::{Cache, Error, Input, Symbol, ParseResult};
-pub use std::rc::Rc;
+
+// used by macro expansion
+pub use std::marker::PhantomData;
+pub use std::collections::HashMap;
 
 // ID :=
 //     "[a-zA-Z]+"

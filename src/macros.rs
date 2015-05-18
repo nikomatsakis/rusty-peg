@@ -37,7 +37,7 @@ macro_rules! rusty_peg_declare_parser {
     ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty))* ) => {
         #[allow(non_snake_case)]
         pub struct $name<'input> {
-            marker: $crate::std::marker::PhantomData<&'input()>,
+            marker: $crate::util::PhantomData<&'input()>,
             base: $base,
             $($nonterminal: $crate::Cache<'input,$ty>),*
         }
@@ -50,9 +50,9 @@ macro_rules! rusty_peg_init_parser {
         impl<'input> $name<'input> {
             fn new(base: $base) -> $name<'input> {
                 $name {
-                    marker: $crate::std::marker::PhantomData,
+                    marker: $crate::util::PhantomData,
                     base: base,
-                    $($nonterminal: $crate::std::collections::HashMap::new()),*
+                    $($nonterminal: $crate::util::HashMap::new()),*
                 }
             }
         }
