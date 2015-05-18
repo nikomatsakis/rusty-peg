@@ -69,12 +69,13 @@ mod silly_grammar {
 mod classy {
     use regex::Regex;
     use std::collections::HashSet;
+    use std::rc::Rc;
     use Symbol;
 
     #[derive(Debug)]
     pub struct ClassDefn<'input> {
         name: &'input str,
-        members: Vec<MemberDefn<'input>>
+        members: Vec<Rc<MemberDefn<'input>>>
     }
 
     #[derive(Debug)]
@@ -86,17 +87,17 @@ mod classy {
     #[derive(Debug)]
     pub struct FieldDefn<'input> {
         name: &'input str,
-        ty: TypeRef<'input>
+        ty: TypeRef<'input>,
     }
 
     #[derive(Debug)]
     pub struct MethodDefn<'input> {
         name: &'input str,
         arg_tys: Vec<TypeRef<'input>>,
-        ret_ty: TypeRef<'input>
+        ret_ty: TypeRef<'input>,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone,Debug)]
     pub struct TypeRef<'input> {
         id: &'input str
     }
@@ -149,18 +150,18 @@ mod classy {
 
     rusty_peg! {
         parser Classy: ClassyBase {
-            CLASS: ClassDefn<'input> =
+            CLASS: Rc<ClassDefn<'input>> =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
-                    ClassDefn { name: name, members: members }
+                    Rc::new(ClassDefn { name: name, members: members })
                 };
 
-            MEMBER: MemberDefn<'input> =
+            MEMBER: Rc<MemberDefn<'input>> =
                 (FIELD_DEFN | METHOD_DEFN);
 
-            FIELD_DEFN: MemberDefn<'input> =
+            FIELD_DEFN: Rc<MemberDefn<'input>> =
                 (<name:ID>, ":", <ty:TYPE_REF>, ";") => {
-                    MemberDefn::Field(Box::new(
-                        FieldDefn { name: name, ty: ty }))
+                    Rc::new(MemberDefn::Field(Box::new(
+                        FieldDefn { name: name, ty: ty })))
                 };
 
             TYPE_REF: TypeRef<'input> =
@@ -168,10 +169,10 @@ mod classy {
                     TypeRef { id: id }
                 };
 
-            METHOD_DEFN: MemberDefn<'input> =
+            METHOD_DEFN: Rc<MemberDefn<'input>> =
                 (<name:ID>, "(", <args:{TYPE_REF}>, ")", "->", <ret:TYPE_REF>, ";") => {
-                    MemberDefn::Method(Box::new(
-                        MethodDefn { name: name, arg_tys: args, ret_ty: ret }))
+                    Rc::new(MemberDefn::Method(Box::new(
+                        MethodDefn { name: name, arg_tys: args, ret_ty: ret })))
                 };
         }
     }

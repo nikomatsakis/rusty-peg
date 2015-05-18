@@ -39,7 +39,7 @@ macro_rules! rusty_peg_declare_parser {
         pub struct $name<'input> {
             marker: $crate::std::marker::PhantomData<&'input()>,
             base: $base,
-            $($nonterminal: $crate::Cache<$ty>),*
+            $($nonterminal: $crate::Cache<'input,$ty>),*
         }
     }
 }
@@ -94,10 +94,16 @@ macro_rules! rusty_peg_declare_map_nonterminal {
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
-                let parser = rusty_peg_named_item!($defn);
-                let (end, rusty_peg_named_item_pat!($defn)) =
-                    try!($crate::Symbol::parse(&parser, grammar, start));
-                Ok((end,$body))
+                $crate::util::memoize(
+                    grammar,
+                    |g| &mut g.$nonterminal,
+                    start.offset,
+                    |g| {
+                        let parser = rusty_peg_named_item!($defn);
+                        let (end, rusty_peg_named_item_pat!($defn)) =
+                            try!($crate::Symbol::parse(&parser, g, start));
+                        Ok((end,$body))
+                    })
             }
         }
     }
@@ -122,8 +128,14 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
-                let parser = rusty_peg_item!($defn);
-                $crate::Symbol::parse(&parser, grammar, start)
+                $crate::util::memoize(
+                    grammar,
+                    |g| &mut g.$nonterminal,
+                    start.offset,
+                    |g| {
+                        let parser = rusty_peg_item!($defn);
+                        $crate::Symbol::parse(&parser, g, start)
+                    })
             }
         }
     }

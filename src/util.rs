@@ -1,5 +1,5 @@
 use super::{Cache, Error, Input, Symbol, ParseResult};
-use std::rc::Rc;
+pub use std::rc::Rc;
 
 // ID :=
 //     "[a-zA-Z]+"
@@ -222,11 +222,28 @@ impl<'input,G,P,S> Symbol<'input,G> for Repeat<P,S>
     }
 }
 
-pub fn memoize<T,F>(cache: &mut Cache<T>,
-                    offset: usize,
-                    compute: F)
-                    -> Rc<T>
-    where F: FnOnce() -> T
+pub fn memoize<'input,P,T:Clone,ComputeFn,CacheFn>(
+    parser: &mut P,
+    mut cache_fn: CacheFn,
+    offset: usize,
+    compute_fn: ComputeFn)
+    -> ParseResult<'input,T>
+    where
+    CacheFn: FnMut(&mut P) -> &mut Cache<'input,T>,
+    ComputeFn: FnOnce(&mut P) -> ParseResult<'input,T>,
 {
-    cache.entry(offset).or_insert_with(|| Rc::new(compute())).clone()
+    {
+        let cache = cache_fn(parser);
+        match cache.get(&offset) {
+            Some(p) => { return p.clone(); }
+            None => { }
+        }
+    }
+
+    let result = compute_fn(parser);
+
+    let cache = cache_fn(parser);
+    cache.insert(offset, result.clone());
+
+    result
 }
