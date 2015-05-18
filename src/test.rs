@@ -8,9 +8,9 @@ mod silly_grammar {
             Hi: u32 = ("Hi") => 1;
             Ho: u32 = "Ho" => 2;
 
-            HiOrHo: u32 = (Hi|Ho);
+            HiOrHo: u32 = (Hi / Ho);
 
-            Sum: u32 = (Sum1 | HiOrHo);
+            Sum: u32 = (Sum1 / HiOrHo);
             Sum1: u32 = (<x:HiOrHo>, "+", <y:Sum>) => {x + y*10};
 
             HiHo: () = (Hi, Ho) => ();
@@ -156,7 +156,7 @@ mod classy {
                 };
 
             MEMBER: Rc<MemberDefn<'input>> =
-                (FIELD_DEFN | METHOD_DEFN);
+                (FIELD_DEFN / METHOD_DEFN);
 
             FIELD_DEFN: Rc<MemberDefn<'input>> =
                 (<name:ID>, ":", <ty:TYPE_REF>, ";") => {

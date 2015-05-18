@@ -210,7 +210,7 @@ macro_rules! rusty_peg_items {
     ( $a:tt, $($bs:tt)* ) => {
         $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs)*), }
     };
-    ( $a:tt | $($bs:tt)* ) => {
+    ( $a:tt / $($bs:tt)* ) => {
         $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs)*) }
     };
     ( $a:tt ) => {
