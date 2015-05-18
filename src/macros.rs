@@ -1,34 +1,88 @@
 #[macro_export]
-macro_rules! rusty_peg_grammar {
-    { nonterminals for $grammar:ty { $($grammar_defn:tt)* } } => {
-        rusty_peg_declare_nonterminals! { $grammar, $($grammar_defn)* }
+macro_rules! rusty_peg {
+    { parser $name:ident: $base:ty { $($grammar_defn:tt)* } } => {
+        rusty_peg_with_nonterminals! {
+            rusty_peg_declare_parser(($name) ($base)); $($grammar_defn)*
+        }
+
+        rusty_peg_with_nonterminals! {
+            rusty_peg_init_parser(($name) ($base)); $($grammar_defn)*
+        }
+
+        rusty_peg_declare_nonterminals! { $name, $($grammar_defn)* }
+    }
+}
+
+#[macro_export]
+macro_rules! rusty_peg_with_nonterminals {
+    ( $m:ident($($args:tt)*) ;
+      $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
+      $($remainder:tt)* ) => {
+        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty));
+                                       $($remainder)* }
+    };
+    ( $m:ident($($args:tt)*) ;
+      $nonterminal:ident: $ty:ty = $defn:tt ;
+      $($remainder:tt)* ) => {
+        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty));
+                                       $($remainder)* }
+    };
+    ( $m:ident($($args:tt)*) ; ) => {
+        $m! { $($args)* }
+    };
+}
+
+#[macro_export]
+macro_rules! rusty_peg_declare_parser {
+    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty))* ) => {
+        #[allow(non_snake_case)]
+        pub struct $name<'input> {
+            marker: $crate::std::marker::PhantomData<&'input()>,
+            base: $base,
+            $($nonterminal: $crate::Cache<$ty>),*
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! rusty_peg_init_parser {
+    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty))* ) => {
+        impl<'input> $name<'input> {
+            fn new(base: $base) -> $name<'input> {
+                $name {
+                    marker: $crate::std::marker::PhantomData,
+                    base: base,
+                    $($nonterminal: $crate::std::collections::HashMap::new()),*
+                }
+            }
+        }
     }
 }
 
 #[macro_export]
 macro_rules! rusty_peg_declare_nonterminals {
-    ( $grammar:ty, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
+    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
       $($remainder:tt)* ) => {
         rusty_peg_declare_map_nonterminal! { $grammar, $nonterminal, $ty, $defn, $body }
         rusty_peg_declare_nonterminals! { $grammar, $($remainder)* }
     };
-    ( $grammar:ty, $nonterminal:ident: $ty:ty = $defn:tt ;
+    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt ;
       $($remainder:tt)* ) => {
         rusty_peg_declare_identity_nonterminal! { $grammar, $nonterminal, $ty, $defn }
         rusty_peg_declare_nonterminals! { $grammar, $($remainder)* }
     };
-    ( $grammar:ty, ) => {
+    ( $grammar:ident, ) => {
     };
 }
 
 #[macro_export]
 macro_rules! rusty_peg_declare_map_nonterminal {
-    ($grammar:ty, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
+    ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
         #[allow(non_camel_case_types)]
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl<'input> $crate::Symbol<'input,$grammar> for $nonterminal {
+        impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
             type Output = $ty;
 
             fn pretty_print(&self) -> String {
@@ -36,7 +90,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
             }
 
             fn parse(&self,
-                     grammar: &mut $grammar,
+                     grammar: &mut $grammar<'input>,
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
@@ -51,12 +105,12 @@ macro_rules! rusty_peg_declare_map_nonterminal {
 
 #[macro_export]
 macro_rules! rusty_peg_declare_identity_nonterminal {
-    ($grammar:ty, $nonterminal:ident, $ty:ty, $defn:tt) => {
+    ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt) => {
         #[allow(non_camel_case_types)]
         #[derive(Debug)]
         pub struct $nonterminal;
 
-        impl<'input> $crate::Symbol<'input,$grammar> for $nonterminal {
+        impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
             type Output = $ty;
 
             fn pretty_print(&self) -> String {
@@ -64,7 +118,7 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
             }
 
             fn parse(&self,
-                     grammar: &mut $grammar,
+                     grammar: &mut $grammar<'input>,
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {

@@ -3,8 +3,8 @@ mod silly_grammar {
 
     pub struct Foo;
 
-    rusty_peg_grammar! {
-        nonterminals for Foo {
+    rusty_peg! {
+        parser Parser: Foo {
             Hi: u32 = ("Hi") => 1;
             Ho: u32 = "Ho" => 2;
 
@@ -19,50 +19,50 @@ mod silly_grammar {
         }
     }
 
-    fn should_parse_prefix<'input,G,P:?Sized>(
-        grammar: &mut G,
-        parser: &P,
+    fn should_parse_prefix<'input,P:?Sized>(
+        symbol: &P,
         text: &'input str)
         -> P::Output
-        where P: Symbol<'input,G>
+        where P: Symbol<'input,Parser<'input>>
     {
-        parser.parse_prefix(grammar, text).unwrap().1
+        let mut parser = Parser::new(Foo);
+        symbol.parse_prefix(&mut parser, text).unwrap().1
     }
 
     #[test]
     fn parse_hi_from_hi() {
-        assert_eq!(1, should_parse_prefix(&mut Foo, &Hi, "Hi"));
+        assert_eq!(1, should_parse_prefix(&Hi, "Hi"));
     }
 
     #[test]
     #[should_panic]
     fn parse_hi_from_ho() {
-        assert_eq!(2, should_parse_prefix(&mut Foo, &Hi, "Ho"));
+        assert_eq!(2, should_parse_prefix(&Hi, "Ho"));
     }
 
     #[test]
     fn parse_hiorho_from_hi() {
-        assert_eq!(1, should_parse_prefix(&mut Foo, &HiOrHo, "Hi"));
+        assert_eq!(1, should_parse_prefix(&HiOrHo, "Hi"));
     }
 
     #[test]
     fn parse_hiorho_from_ho() {
-        assert_eq!(2, should_parse_prefix(&mut Foo, &HiOrHo, "Ho"));
+        assert_eq!(2, should_parse_prefix(&HiOrHo, "Ho"));
     }
 
     #[test]
     fn parse_hiho_from_ho() {
-        assert_eq!((), should_parse_prefix(&mut Foo, &HiHo, "Hi Ho"));
+        assert_eq!((), should_parse_prefix(&HiHo, "Hi Ho"));
     }
 
     #[test]
     fn parse_sum_from_ho() {
-        assert_eq!(1221, should_parse_prefix(&mut Foo, &Sum, "Hi + Ho + Ho + Hi"));
+        assert_eq!(1221, should_parse_prefix(&Sum, "Hi + Ho + Ho + Hi"));
     }
 
     #[test]
     fn parse_repeat() {
-        assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&mut Foo, &Rep, "Hi Ho Ho Hi Ho"));
+        assert_eq!(vec![1, 2, 2, 1, 2], should_parse_prefix(&Rep, "Hi Ho Ho Hi Ho"));
     }
 }
 
@@ -102,14 +102,14 @@ mod classy {
     }
 
     #[derive(Debug)]
-    pub struct Classy {
+    pub struct ClassyBase {
         identifier: Regex,
         keywords: HashSet<String>,
     }
 
-    impl Classy {
-        fn new() -> Classy {
-            Classy {
+    impl ClassyBase {
+        fn new() -> ClassyBase {
+            ClassyBase {
                 identifier: Regex::new("^[a-zA-Z_][a-zA-Z_0-9]*").unwrap(),
                 keywords: vec!["class"].into_iter().map(|x| x.to_string()).collect(),
             }
@@ -120,7 +120,7 @@ mod classy {
     #[derive(Debug)]
     struct ID;
 
-    impl<'input> Symbol<'input,Classy> for ID {
+    impl<'input> Symbol<'input,Classy<'input>> for ID {
         type Output = &'input str;
 
         fn pretty_print(&self) -> String {
@@ -128,15 +128,15 @@ mod classy {
         }
 
         fn parse(&self,
-                 grammar: &mut Classy,
+                 parser: &mut Classy,
                  start: ::Input<'input>)
                  -> ::ParseResult<'input,&'input str>
         {
-            match grammar.identifier.find(&start.text[start.offset..]) {
+            match parser.base.identifier.find(&start.text[start.offset..]) {
                 Some((_, offset)) => {
                     let end = start.offset_by(offset);
                     let matched = &start.text[start.offset..end.offset];
-                    if !grammar.keywords.contains(matched) {
+                    if !parser.base.keywords.contains(matched) {
                         return Ok((end, matched));
                     }
                 }
@@ -147,8 +147,8 @@ mod classy {
         }
     }
 
-    rusty_peg_grammar! {
-        nonterminals for Classy {
+    rusty_peg! {
+        parser Classy: ClassyBase {
             CLASS: ClassDefn<'input> =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
                     ClassDefn { name: name, members: members }
@@ -178,7 +178,7 @@ mod classy {
 
     #[test]
     fn parse_a_class() {
-        let mut classy = Classy::new();
+        let mut classy = Classy::new(ClassyBase::new());
         let (_, result) =
             CLASS.parse_prefix(
                 &mut classy,

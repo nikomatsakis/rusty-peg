@@ -3,6 +3,9 @@
 
 extern crate regex;
 
+use std::collections::HashMap;
+use std::rc::Rc;
+
 #[derive(Copy,Clone)]
 pub struct Input<'a> {
     text: &'a str,
@@ -24,6 +27,8 @@ pub trait Symbol<'input, G> {
     fn parse(&self, grammar: &mut G, input: Input<'input>)
                  -> ParseResult<'input,Self::Output>;
 }
+
+pub type Cache<T> = HashMap<usize, Rc<T>>;
 
 pub type ParseResult<'input,O> = Result<(Input<'input>, O), Error<'input>>;
 

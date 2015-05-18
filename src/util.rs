@@ -1,5 +1,4 @@
-use super::{Error, Input, Symbol, ParseResult};
-use std::collections::HashMap;
+use super::{Cache, Error, Input, Symbol, ParseResult};
 use std::rc::Rc;
 
 // ID :=
@@ -221,4 +220,13 @@ impl<'input,G,P,S> Symbol<'input,G> for Repeat<P,S>
             return Err(err);
         }
     }
+}
+
+pub fn memoize<T,F>(cache: &mut Cache<T>,
+                    offset: usize,
+                    compute: F)
+                    -> Rc<T>
+    where F: FnOnce() -> T
+{
+    cache.entry(offset).or_insert_with(|| Rc::new(compute())).clone()
 }
