@@ -1,3 +1,7 @@
+// NOTE: The only macro intentionally exported is `rusty_peg`. All
+// other macros should be marked `#[doc(hidden)]` and considered
+// internal implementation details.
+
 #[macro_export]
 macro_rules! rusty_peg {
     { parser $name:ident<'input>: $base:ty { $($grammar_defn:tt)* } } => {
@@ -17,115 +21,160 @@ macro_rules! rusty_peg {
 #[doc(hidden)]
 macro_rules! rusty_peg_parser {
     { parser $name:ident: $base:ty { $($grammar_defn:tt)* } } => {
-        rusty_peg_with_nonterminals! {
-            rusty_peg_declare_parser(($name) ($base)); $($grammar_defn)*
+        rusty_peg_parse_grammar_definition! {
+            rusty_peg_parser_parsed {
+                (arg ($name) ($base))
+                    (any)
+                    (def)
+                    (map)
+                    (reg)
+            }
+            $($grammar_defn)*
         }
-
-        rusty_peg_with_nonterminals! {
-            rusty_peg_init_parser(($name) ($base)); $($grammar_defn)*
-        }
-
-        rusty_peg_declare_nonterminals! { $name, $($grammar_defn)* }
     }
 }
 
-/// This is a higher-order macro. It should be called like:
-///
-/// ```ignore
-/// rusty_peg_with_nonterminals! { $macro_name($args); $grammar... }
-/// ```
-///
-/// it will parse the grammar definition `$grammar` into a list of
-/// triples, one for each nonterminal: `($name:ident, $type:ty,
-/// $defn:tt)`.  Here $defn matches one of the following token-tree
-/// definitions, which match the syntax the user uses, but that they
-/// are wrapped in parentheses:
-///
-/// - `($defn:tt => $body:expr)`
-/// - `($defn:tt)`
-///
-/// So, as an example, if you invoke
-///
-/// ```ignore
-/// rusty_peg_with_nonterminals! { foo(1 2); X: u32 = "X" => 1; Y: u32 = X; }
-/// ```
-///
-/// it would translate into a call like
-///
-/// ```ignore
-/// foo! { 1 2 (X, u32, ("X" => 1)) (Y, u32, (X)) }
-/// ```
+// This macro is used to parse the user's grammar definition and segregate
+// the nonterminals into various distinct categories. Ultimately, it invokes
+// `rusty_peg_parser_parsed` with a particular form:
+//
+// ```
+// rusty_peg_parser_parsed! {
+//   (arg ...)
+//   (any (<ident>, <ty>)...)
+//   (def (<ident>, <ty>, (<tt>))...)
+//   (map (<ident>, <ty>, (<tt> => <expr>))...)
+//   (reg (<ident>, <ty>, (<expr>))...)
+// }
+// ```
+//
+// Here:
+// -  `...` is used to mean "repeated an arbitrary number of times.
+// - `<ident>` is the identifier of some non-terminal.
+// - `<ty>` is the type the user declared for that non-terminal.
+// - `<tt>` refers to a token tree representing the definition of a nonterminal.
+// - `<expr>` refers to a Rust expression.
+//
+// As you can see, `rusty_peg_parser_parsed` is invoked with five
+// lists, each tagged with an identifier. The first list, tagged
+// `any`, contains the names and types of ALL nonterminals. Each other
+// list contains only those entries of a particular kind:
+//
+// - `map`: nonterminals defined like `FOO: u32 = ("a" "b") => { 22
+//   };`.  Here, `<ident>` would be `FOO`, `<ty>` would be `u32`,
+//   `<tt>` would be `("a" "b")`, and `<expr>` would be `{ 22 }`.
+// - `def`: nonterminals defined like `FOO: &'static str =
+//   "bar";`. Here, `<ident>` would be Foo`, `<ty>` would be `&'static
+//   str`, and `<tt>` would be `"bar".
+// - `reg`: nonterminals defined like `FOO: &'input str = regexp r"something";`
+//   Here, `<ident>` would be Foo`, `<ty>` would be `&'input
+//   str`, and `<expr>` would be `r"something"`.
+//
+// These strings are deliberately constructed to be easy to match and
+// work with in subsequent macro definitions.
 #[macro_export]
 #[doc(hidden)]
-macro_rules! rusty_peg_with_nonterminals {
-    ( $m:ident($($args:tt)*) ;
-      $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
-      $($remainder:tt)* ) => {
-        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty, ($defn => $body)));
-                                       $($remainder)* }
+macro_rules! rusty_peg_parse_grammar_definition {
+    // Base case.
+    {
+        $m:ident {
+            (arg $($args:tt)*)
+                (any $(($any_nt:ident, $any_ty:ty))*)
+                (def $(($def_nt:ident, $def_ty:ty, $def_tt:tt))*)
+                (map $(($map_nt:ident, $map_ty:ty, $map_tt:tt))*)
+                (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+        }
+    } => {
+        rusty_peg_parser_parsed! {
+            (arg $($args)*)
+            (any $(($any_nt, $any_ty))*)
+            (def $(($def_nt, $def_ty, $def_tt))*)
+            (map $(($map_nt, $map_ty, $map_tt))*)
+            (reg $(($reg_nt, $reg_ty, $reg_tt))*)
+        }
     };
-    ( $m:ident($($args:tt)*) ;
-      $nonterminal:ident: $ty:ty = $defn:tt ;
-      $($remainder:tt)* ) => {
-        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty, ($defn)));
-                                       $($remainder)* }
+
+    // Match a "map" definition:
+    {
+        $m:ident {
+            (arg $($args:tt)*)
+                (any $(($any_nt:ident, $any_ty:ty))*)
+                (def $(($def_nt:ident, $def_ty:ty, $def_tt:tt))*)
+                (map $(($map_nt:ident, $map_ty:ty, $map_tt:tt))*)
+                (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+        }
+        $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
+        $($remainder:tt)*
+    } => {
+        rusty_peg_parse_grammar_definition! {
+            $m {
+                (arg $($args)*)
+                    (any $(($any_nt, $any_ty))* ($nonterminal, $ty))
+                    (def $(($def_nt, $def_ty, $def_tt))*)
+                    (map $(($map_nt, $map_ty, $map_tt))* ($nonterminal, $ty, ($defn => $body)))
+                    (reg $(($reg_nt, $reg_ty, $reg_tt))*)
+            }
+            $($remainder)*
+        }
     };
-    ( $m:ident($($args:tt)*) ; ) => {
-        $m! { $($args)* }
+
+    // Match a "equate" definition:
+    {
+        $m:ident {
+            (arg $($args:tt)*)
+                (any $(($any_nt:ident, $any_ty:ty))*)
+                (def $(($def_nt:ident, $def_ty:ty, $def_tt:tt))*)
+                (map $(($map_nt:ident, $map_ty:ty, $map_tt:tt))*)
+                (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+        }
+        $nonterminal:ident: $ty:ty = $defn:tt ;
+        $($remainder:tt)*
+    } => {
+        rusty_peg_parse_grammar_definition! {
+            $m {
+                (arg $($args)*)
+                    (any $(($any_nt, $any_ty))* ($nonterminal, $ty))
+                    (def $(($def_nt, $def_ty, $def_tt))* ($nonterminal, $ty, ($defn)))
+                    (map $(($map_nt, $map_ty, $map_tt))*)
+                    (reg $(($reg_nt, $reg_ty, $reg_tt))*)
+            }
+            $($remainder)*
+        }
     };
 }
 
-/// Creates declaration of the parser struct. Expects to be invoked
-/// from `rusty_peg_with_nonterminals`, with the initial arguments
-/// `($name:ident) ($base:ty)`, where `$name` is the name of the
-/// parser struct type and `$base` is the type of the base field.
+// Invoked by rusty_peg_parse_grammar_definition, actually generates
+// the parser structs and so forth.
 #[macro_export]
-macro_rules! rusty_peg_declare_parser {
-    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty, $defn:tt))* ) => {
+#[doc(hidden)]
+macro_rules! rusty_peg_parser_parsed {
+    {
+        (arg ($name:ident) ($base:ty))
+            (any $(($any_nt:ident, $any_ty:ty))*)
+            (def $(($def_nt:ident, $def_ty:ty, ($def_tt:tt)))*)
+            (map $(($map_nt:ident, $map_ty:ty, ($map_tt:tt => $map_expr:expr)))*)
+            (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+    } => {
         #[allow(non_snake_case)]
         pub struct $name<'input> {
             marker: $crate::util::PhantomData<&'input()>,
             base: $base,
-            $($nonterminal: $crate::Cache<'input,$ty>),*
+            $($any_nt: $crate::Cache<'input,$any_ty>),*
         }
-    }
-}
 
-/// Creates an impl block declaring the `new` method that initializes
-/// the parser type. Expects to be invoked from
-/// `rusty_peg_with_nonterminals` with initial arguments
-/// `($name:ident) ($base:ty)`, as `rusty_peg_declare_parser`.
-#[macro_export]
-#[doc(hidden)]
-macro_rules! rusty_peg_init_parser {
-    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty, $defn:tt))* ) => {
         impl<'input> $name<'input> {
             fn new(base: $base) -> $name<'input> {
                 $name {
                     marker: $crate::util::PhantomData,
                     base: base,
-                    $($nonterminal: $crate::util::HashMap::new()),*
+                    $($any_nt: $crate::util::HashMap::new()),*
                 }
             }
         }
-    }
-}
 
-#[macro_export]
-#[doc(hidden)]
-macro_rules! rusty_peg_declare_nonterminals {
-    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
-      $($remainder:tt)* ) => {
-        rusty_peg_declare_map_nonterminal! { $grammar, $nonterminal, $ty, $defn, $body }
-        rusty_peg_declare_nonterminals! { $grammar, $($remainder)* }
-    };
-    ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt ;
-      $($remainder:tt)* ) => {
-        rusty_peg_declare_identity_nonterminal! { $grammar, $nonterminal, $ty, $defn }
-        rusty_peg_declare_nonterminals! { $grammar, $($remainder)* }
-    };
-    ( $grammar:ident, ) => {
-    };
+        $(rusty_peg_declare_map_nonterminal!{$name, $map_nt, $map_ty, $map_tt, $map_expr})*
+        $(rusty_peg_declare_identity_nonterminal!{$name, $def_nt, $def_ty, $def_tt})*
+    }
 }
 
 #[macro_export]
