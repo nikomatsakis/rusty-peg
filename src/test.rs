@@ -68,7 +68,6 @@ mod silly_grammar {
 
 mod classy {
     use regex::Regex;
-    use std::collections::HashSet;
     use std::rc::Rc;
     use Symbol;
 
@@ -102,54 +101,11 @@ mod classy {
         id: &'input str
     }
 
-    #[derive(Debug)]
-    pub struct ClassyBase {
-        identifier: Regex,
-        keywords: HashSet<String>,
-    }
-
-    impl ClassyBase {
-        fn new() -> ClassyBase {
-            ClassyBase {
-                identifier: Regex::new("^[a-zA-Z_][a-zA-Z_0-9]*").unwrap(),
-                keywords: vec!["class"].into_iter().map(|x| x.to_string()).collect(),
-            }
-        }
-    }
-
-    #[allow(non_camel_case_types)]
-    #[derive(Debug)]
-    struct ID;
-
-    impl<'input> Symbol<'input,Classy<'input>> for ID {
-        type Output = &'input str;
-
-        fn pretty_print(&self) -> String {
-            format!("{:?}", self)
-        }
-
-        fn parse(&self,
-                 parser: &mut Classy,
-                 start: ::Input<'input>)
-                 -> ::ParseResult<'input,&'input str>
-        {
-            match parser.base.identifier.find(&start.text[start.offset..]) {
-                Some((_, offset)) => {
-                    let end = start.offset_by(offset);
-                    let matched = &start.text[start.offset..end.offset];
-                    if !parser.base.keywords.contains(matched) {
-                        return Ok((end, matched));
-                    }
-                }
-                None => { }
-            }
-
-            Err(::Error { expected: "identifier", offset: start.offset })
-        }
-    }
-
     rusty_peg! {
-        parser Classy<'input>: ClassyBase {
+        parser Classy<'input> {
+            ID: &'input str =
+                regex(r"^[a-zA-Z_][a-zA-Z_0-9]*") - ["class"];
+
             CLASS: Rc<ClassDefn<'input>> =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
                     Rc::new(ClassDefn { name: name, members: members })
@@ -179,7 +135,7 @@ mod classy {
 
     #[test]
     fn parse_a_class() {
-        let mut classy = Classy::new(ClassyBase::new());
+        let mut classy = Classy::new(());
         let (_, result) =
             CLASS.parse_prefix(
                 &mut classy,

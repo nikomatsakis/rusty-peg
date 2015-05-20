@@ -57,4 +57,5 @@ impl<'input> Input<'input> {
     }
 }
 
+#[cfg(test)]
 mod test;

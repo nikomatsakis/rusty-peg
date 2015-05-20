@@ -1,4 +1,6 @@
 use super::{Cache, Error, Input, Symbol, ParseResult};
+use regex::Regex;
+use std::collections::HashSet;
 
 // used by macro expansion
 pub use std::marker::PhantomData;
@@ -222,6 +224,45 @@ impl<'input,G,P,S> Symbol<'input,G> for Repeat<P,S>
         } else {
             return Err(err);
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct RegexNt {
+    regex: Regex,
+    exceptions: HashSet<String>,
+}
+
+impl RegexNt {
+    pub fn new(text: &str, exceptions: HashSet<String>) -> RegexNt {
+        RegexNt {regex: Regex::new(text).unwrap(), exceptions: exceptions}
+    }
+}
+
+impl<'input,G> Symbol<'input,G> for RegexNt {
+    type Output = &'input str;
+
+    fn pretty_print(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn parse(&self,
+             _: &mut G,
+             start: ::Input<'input>)
+             -> ::ParseResult<'input,&'input str>
+    {
+        match self.regex.find(&start.text[start.offset..]) {
+            Some((_, offset)) => {
+                let end = start.offset_by(offset);
+                let matched = &start.text[start.offset..end.offset];
+                if !self.exceptions.contains(matched) {
+                    return Ok((end, matched));
+                }
+            }
+            None => { }
+        }
+
+        Err(::Error { expected: "regex", offset: start.offset })
     }
 }
 

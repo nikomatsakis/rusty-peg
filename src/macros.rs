@@ -4,13 +4,13 @@
 
 #[macro_export]
 macro_rules! rusty_peg {
-    { parser $name:ident<'input>: $base:ty { $($grammar_defn:tt)* } } => {
+    { parser $name:ident<'input>: $base:ty { $($grammar_defn:tt)+ } } => {
         rusty_peg_parser! {
             parser $name: $base { $($grammar_defn)* }
         }
     };
 
-    { parser $name:ident<'input> { $($grammar_defn:tt)* } } => {
+    { parser $name:ident<'input> { $($grammar_defn:tt)+ } } => {
         rusty_peg_parser! {
             parser $name: () { $($grammar_defn)* }
         }
@@ -66,7 +66,7 @@ macro_rules! rusty_peg_parser {
 // - `def`: nonterminals defined like `FOO: &'static str =
 //   "bar";`. Here, `<ident>` would be Foo`, `<ty>` would be `&'static
 //   str`, and `<tt>` would be `"bar".
-// - `reg`: nonterminals defined like `FOO: &'input str = regexp r"something";`
+// - `reg`: nonterminals defined like `FOO: &'input str = regex(r"something");`
 //   Here, `<ident>` would be Foo`, `<ty>` would be `&'input
 //   str`, and `<expr>` would be `r"something"`.
 //
@@ -141,6 +141,55 @@ macro_rules! rusty_peg_parse_grammar_definition {
             $($remainder)*
         }
     };
+
+    // Match a "regexp" definition with no exceptions:
+    {
+        $m:ident {
+            (arg $($args:tt)*)
+                (any $(($any_nt:ident, $any_ty:ty))*)
+                (def $(($def_nt:ident, $def_ty:ty, $def_tt:tt))*)
+                (map $(($map_nt:ident, $map_ty:ty, $map_tt:tt))*)
+                (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+        }
+        $nonterminal:ident: $ty:ty = regex($defn:expr);
+        $($remainder:tt)*
+    } => {
+        rusty_peg_parse_grammar_definition! {
+            $m {
+                (arg $($args)*)
+                    (any $(($any_nt, $any_ty))* ($nonterminal, $ty))
+                    (def $(($def_nt, $def_ty, $def_tt))*)
+                    (map $(($map_nt, $map_ty, $map_tt))*)
+                    (reg $(($reg_nt, $reg_ty, $reg_tt))* ($nonterminal, $ty, ($defn, [])))
+            }
+            $($remainder)*
+        }
+    };
+
+    // Match a "regexp" definition with exceptions:
+    {
+        $m:ident {
+            (arg $($args:tt)*)
+                (any $(($any_nt:ident, $any_ty:ty))*)
+                (def $(($def_nt:ident, $def_ty:ty, $def_tt:tt))*)
+                (map $(($map_nt:ident, $map_ty:ty, $map_tt:tt))*)
+                (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+        }
+        $nonterminal:ident: $ty:ty = regex($defn:expr) - [ $($exceptions:expr),* ];
+        $($remainder:tt)*
+    } => {
+        rusty_peg_parse_grammar_definition! {
+            $m {
+                (arg $($args)*)
+                    (any $(($any_nt, $any_ty))* ($nonterminal, $ty))
+                    (def $(($def_nt, $def_ty, $def_tt))*)
+                    (map $(($map_nt, $map_ty, $map_tt))*)
+                    (reg $(($reg_nt, $reg_ty, $reg_tt))*
+                         ($nonterminal, $ty, ($defn, [$($exceptions),*])))
+            }
+            $($remainder)*
+        }
+    };
 }
 
 // Invoked by rusty_peg_parse_grammar_definition, actually generates
@@ -150,16 +199,28 @@ macro_rules! rusty_peg_parse_grammar_definition {
 macro_rules! rusty_peg_parser_parsed {
     {
         (arg ($name:ident) ($base:ty))
-            (any $(($any_nt:ident, $any_ty:ty))*)
+            (any $(($any_nt:ident, $any_ty:ty))+)
             (def $(($def_nt:ident, $def_ty:ty, ($def_tt:tt)))*)
             (map $(($map_nt:ident, $map_ty:ty, ($map_tt:tt => $map_expr:expr)))*)
-            (reg $(($reg_nt:ident, $reg_ty:ty, $reg_tt:tt))*)
+            (reg $(($reg_nt:ident, $reg_ty:ty, ($reg_re:expr, [$($reg_exn:expr),*])))*)
     } => {
-        #[allow(non_snake_case)]
         pub struct $name<'input> {
             marker: $crate::util::PhantomData<&'input()>,
-            base: $base,
+            pub base: $base,
+            caches: Caches<'input>,
+            regexs: Regexs
+        }
+
+        #[allow(non_snake_case)]
+        struct Caches<'input> {
+            __dummy__: (),
             $($any_nt: $crate::Cache<'input,$any_ty>),*
+        }
+
+        #[allow(non_snake_case)]
+        struct Regexs {
+            __dummy__: (),
+            $($reg_nt: Rc<$crate::util::RegexNt>),*
         }
 
         impl<'input> $name<'input> {
@@ -167,13 +228,22 @@ macro_rules! rusty_peg_parser_parsed {
                 $name {
                     marker: $crate::util::PhantomData,
                     base: base,
-                    $($any_nt: $crate::util::HashMap::new()),*
+                    caches: Caches { __dummy__: (), $($any_nt: $crate::util::HashMap::new()),* },
+                    regexs: Regexs {
+                        __dummy__: (),
+                        $($reg_nt: Rc::new($crate::util::RegexNt::new(
+                            $reg_re,
+                            vec![$($reg_exn),*].into_iter()
+                                               .map(|t| t.to_string())
+                                               .collect()))),*
+                    },
                 }
             }
         }
 
         $(rusty_peg_declare_map_nonterminal!{$name, $map_nt, $map_ty, $map_tt, $map_expr})*
         $(rusty_peg_declare_identity_nonterminal!{$name, $def_nt, $def_ty, $def_tt})*
+        $(rusty_peg_declare_regexp_nonterminal!{$name, $reg_nt, $reg_ty})*
     }
 }
 
@@ -199,7 +269,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
             {
                 $crate::util::memoize(
                     grammar,
-                    |g| &mut g.$nonterminal,
+                    |g| &mut g.caches.$nonterminal,
                     start.offset,
                     |g| {
                         let parser = rusty_peg_named_item!($defn);
@@ -234,11 +304,47 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
             {
                 $crate::util::memoize(
                     grammar,
-                    |g| &mut g.$nonterminal,
+                    |g| &mut g.caches.$nonterminal,
                     start.offset,
                     |g| {
                         let parser = rusty_peg_item!($defn);
                         $crate::Symbol::parse(&parser, g, start)
+                    })
+            }
+        }
+    }
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! rusty_peg_declare_regexp_nonterminal {
+    ($grammar:ident, $nonterminal:ident, $ty:ty) => {
+        #[allow(non_camel_case_types)]
+        #[derive(Debug)]
+        pub struct $nonterminal;
+
+        impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
+            type Output = $ty;
+
+            fn pretty_print(&self) -> String {
+                format!("{:?}", self)
+            }
+
+            fn parse(&self,
+                     grammar: &mut $grammar<'input>,
+                     start: $crate::Input<'input>)
+                     -> $crate::ParseResult<'input,$ty>
+            {
+                let regex = grammar.regexs.$nonterminal.clone();
+                $crate::util::memoize(
+                    grammar,
+                    |grammar| &mut grammar.caches.$nonterminal,
+                    start.offset,
+                    |grammar| {
+                        $crate::Symbol::parse(
+                            &*regex,
+                            grammar,
+                            start)
                     })
             }
         }
