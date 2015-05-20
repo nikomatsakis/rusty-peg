@@ -4,7 +4,7 @@ mod silly_grammar {
     pub struct Foo;
 
     rusty_peg! {
-        parser Parser: Foo {
+        parser Parser<'input>: Foo {
             Hi: u32 = ("Hi") => 1;
             Ho: u32 = "Ho" => 2;
 
@@ -149,7 +149,7 @@ mod classy {
     }
 
     rusty_peg! {
-        parser Classy: ClassyBase {
+        parser Classy<'input>: ClassyBase {
             CLASS: Rc<ClassDefn<'input>> =
                 ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
                     Rc::new(ClassDefn { name: name, members: members })

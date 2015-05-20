@@ -14,6 +14,7 @@ macro_rules! rusty_peg {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_parser {
     { parser $name:ident: $base:ty { $($grammar_defn:tt)* } } => {
         rusty_peg_with_nonterminals! {
@@ -28,18 +29,45 @@ macro_rules! rusty_peg_parser {
     }
 }
 
+/// This is a higher-order macro. It should be called like:
+///
+/// ```ignore
+/// rusty_peg_with_nonterminals! { $macro_name($args); $grammar... }
+/// ```
+///
+/// it will parse the grammar definition `$grammar` into a list of
+/// triples, one for each nonterminal: `($name:ident, $type:ty,
+/// $defn:tt)`.  Here $defn matches one of the following token-tree
+/// definitions, which match the syntax the user uses, but that they
+/// are wrapped in parentheses:
+///
+/// - `($defn:tt => $body:expr)`
+/// - `($defn:tt)`
+///
+/// So, as an example, if you invoke
+///
+/// ```ignore
+/// rusty_peg_with_nonterminals! { foo(1 2); X: u32 = "X" => 1; Y: u32 = X; }
+/// ```
+///
+/// it would translate into a call like
+///
+/// ```ignore
+/// foo! { 1 2 (X, u32, ("X" => 1)) (Y, u32, (X)) }
+/// ```
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_with_nonterminals {
     ( $m:ident($($args:tt)*) ;
       $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
       $($remainder:tt)* ) => {
-        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty));
+        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty, ($defn => $body)));
                                        $($remainder)* }
     };
     ( $m:ident($($args:tt)*) ;
       $nonterminal:ident: $ty:ty = $defn:tt ;
       $($remainder:tt)* ) => {
-        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty));
+        rusty_peg_with_nonterminals! { $m($($args)* ($nonterminal, $ty, ($defn)));
                                        $($remainder)* }
     };
     ( $m:ident($($args:tt)*) ; ) => {
@@ -47,9 +75,13 @@ macro_rules! rusty_peg_with_nonterminals {
     };
 }
 
+/// Creates declaration of the parser struct. Expects to be invoked
+/// from `rusty_peg_with_nonterminals`, with the initial arguments
+/// `($name:ident) ($base:ty)`, where `$name` is the name of the
+/// parser struct type and `$base` is the type of the base field.
 #[macro_export]
 macro_rules! rusty_peg_declare_parser {
-    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty))* ) => {
+    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty, $defn:tt))* ) => {
         #[allow(non_snake_case)]
         pub struct $name<'input> {
             marker: $crate::util::PhantomData<&'input()>,
@@ -59,9 +91,14 @@ macro_rules! rusty_peg_declare_parser {
     }
 }
 
+/// Creates an impl block declaring the `new` method that initializes
+/// the parser type. Expects to be invoked from
+/// `rusty_peg_with_nonterminals` with initial arguments
+/// `($name:ident) ($base:ty)`, as `rusty_peg_declare_parser`.
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_init_parser {
-    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty))* ) => {
+    ( ($name:ident) ($base:ty) $(($nonterminal:ident, $ty:ty, $defn:tt))* ) => {
         impl<'input> $name<'input> {
             fn new(base: $base) -> $name<'input> {
                 $name {
@@ -75,6 +112,7 @@ macro_rules! rusty_peg_init_parser {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_declare_nonterminals {
     ( $grammar:ident, $nonterminal:ident: $ty:ty = $defn:tt => $body:expr ;
       $($remainder:tt)* ) => {
@@ -91,6 +129,7 @@ macro_rules! rusty_peg_declare_nonterminals {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_declare_map_nonterminal {
     ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt, $body:expr) => {
         #[allow(non_camel_case_types)]
@@ -125,6 +164,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_declare_identity_nonterminal {
     ($grammar:ident, $nonterminal:ident, $ty:ty, $defn:tt) => {
         #[allow(non_camel_case_types)]
@@ -157,6 +197,7 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_named_item {
     ( ( $($a:tt)* ) ) => {
         rusty_peg_named_items!($($a)*)
@@ -167,6 +208,7 @@ macro_rules! rusty_peg_named_item {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_named_items {
     ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
         {
@@ -192,6 +234,7 @@ macro_rules! rusty_peg_named_items {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_named_item_pat {
     ( ( $($a:tt)* ) ) => {
         rusty_peg_named_items_pat!($($a)*)
@@ -202,6 +245,7 @@ macro_rules! rusty_peg_named_item_pat {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_named_items_pat {
     ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
         ($name, rusty_peg_named_items_pat!($($bs)*))
@@ -221,6 +265,7 @@ macro_rules! rusty_peg_named_items_pat {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_items {
     ( $a:tt, $($bs:tt)* ) => {
         $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs)*), }
@@ -237,6 +282,7 @@ macro_rules! rusty_peg_items {
 }
 
 #[macro_export]
+#[doc(hidden)]
 macro_rules! rusty_peg_item {
     { ( ) } => {
         Empty
