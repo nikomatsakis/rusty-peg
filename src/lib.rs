@@ -16,6 +16,19 @@ pub trait Symbol<'input, G> {
 
     fn pretty_print(&self) -> String;
 
+    fn parse_complete(&self, grammar: &mut G, text: &'input str)
+                      -> Result<Self::Output, Error<'input>>
+    {
+        let (mid, result) = try!(self.parse_prefix(grammar, text));
+        let end = util::skip_whitespace(mid);
+        if end.offset == text.len() {
+            Ok(result)
+        } else {
+            Err(Error { expected: "end of input",
+                        offset: end.offset })
+        }
+    }
+
     fn parse_prefix(&self, grammar: &mut G, text: &'input str)
                      -> ParseResult<'input,Self::Output>
     {

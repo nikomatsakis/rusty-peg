@@ -113,7 +113,7 @@ impl<'input,G> Symbol<'input,G> for Whitespace {
     }
 }
 
-fn skip_whitespace<'input>(mut input: Input<'input>) -> Input<'input> {
+pub fn skip_whitespace<'input>(mut input: Input<'input>) -> Input<'input> {
     let bytes = input.text.as_bytes();
     while input.offset < input.text.len() && is_space(bytes[input.offset]) {
         input.offset += 1;
