@@ -235,7 +235,9 @@ pub struct RegexNt {
 
 impl RegexNt {
     pub fn new(text: &str, exceptions: HashSet<String>) -> RegexNt {
-        RegexNt {regex: Regex::new(text).unwrap(), exceptions: exceptions}
+        // we always want the regex anchored to the start of the string
+        let text = format!("^{}", text);
+        RegexNt {regex: Regex::new(&text).unwrap(), exceptions: exceptions}
     }
 }
 
