@@ -4,32 +4,30 @@ use Symbol;
 
 rusty_peg! {
     parser Calculator<'input> {
-        NUMBER_STRING: &'input str =
-            regex(r"[0-9]+");
-
-        NUMBER: u32 =
-            (<s:NUMBER_STRING>) => {
-                u32::from_str(s).unwrap()
-            };
+        EXPR: u32 =
+            ADD_SUB_EXPR;
 
         PAREN_EXPR: u32 =
             ("(", <e:EXPR>, ")") => e;
-
-        ATOM_EXPR: u32 =
-            (NUMBER / PAREN_EXPR);
-
-        MUL_DIV_EXPR: u32 =
-            fold(<lhs:ATOM_EXPR>,
-                 ("*", <rhs:ATOM_EXPR>) => { lhs * rhs },
-                 ("/", <rhs:ATOM_EXPR>) => { lhs / rhs });
 
         ADD_SUB_EXPR: u32 =
             fold(<lhs:MUL_DIV_EXPR>,
                  ("+", <rhs:MUL_DIV_EXPR>) => { lhs + rhs },
                  ("-", <rhs:MUL_DIV_EXPR>) => { lhs - rhs });
 
-        EXPR: u32 =
-            ADD_SUB_EXPR;
+        MUL_DIV_EXPR: u32 =
+            fold(<lhs:ATOM_EXPR>,
+                 ("*", <rhs:ATOM_EXPR>) => { lhs * rhs },
+                 ("/", <rhs:ATOM_EXPR>) => { lhs / rhs });
+
+        ATOM_EXPR: u32 =
+            (NUMBER / PAREN_EXPR);
+
+        NUMBER: u32 =
+            (<s:NUMBER_STRING>) => u32::from_str(s).unwrap();
+
+        NUMBER_STRING: &'input str =
+            regex(r"[0-9]+");
     }
 }
 
