@@ -1,7 +1,8 @@
 Rusty PEG is a set of macros and library code designed to make it very
 easy to write parsers in Rust. The name derives from the fact that the
 libary is intended to generate parsers that use the
-[Parsing Expression Grammar][PEG] scheme.
+[Parsing Expression Grammar][PEG] scheme. Rusty PEG is
+[available in Cargo](https://crates.io/crates/rusty-peg).
 
 ### A brief tutorial on Rusty PEG
 
