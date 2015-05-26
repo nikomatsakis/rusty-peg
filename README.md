@@ -67,16 +67,16 @@ rusty_peg! {
         // This is an example of a "fold" nonterminal. Fold nonterminals are a
         // special form that first match one instance of some base form (in this case,
         // `<lhs:MUL_DIV_EXPR>`) and then match zero or more instances of various
-        // extensions. This is a common pattern that arises in expressions in particular.
-        // Each time an extension is parsed, a little bit of custom code runs
-        // to produce a new result. In this case, `ADD_SUB_EXPR` is basically parsing
-        // a series like:
+        // extensions. This is a common pattern that arises in expressions
+        // in particular. Each time an extension is parsed, a little bit of custom
+        // code runs to produce a new result. In this case, `ADD_SUB_EXPR` is
+        // basically parsing a series like:
         //
         //     MUL_DIV_EXPR + MUL_DIV_EXPR - MUL_DIV_EXPR
         //
-        // The tiered structure you see here is intended to enforce the order of operations:
-        // all multiplications and divisions will be performed before we parse the `+` and
-        // `-` operators.
+        // The tiered structure you see here is intended to enforce the
+        // order of operations: all multiplications and divisions will be performed
+        // before we parse the `+` and `-` operators.
         ADD_SUB_EXPR: u32 =
             fold(<lhs:MUL_DIV_EXPR>,
                  ("+", <rhs:MUL_DIV_EXPR>) => { lhs + rhs },
