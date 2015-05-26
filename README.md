@@ -204,6 +204,7 @@ have an idea how for how Rusty PEG could be improved, I'd love to hear
 it (or see a PR, for that matter).  Here are some thoughts I had on
 changes I might make in the future:
 
+- Write a lot more tests; the test suite is far from exhaustive :)
 - Remove the need for the comma operator; this is blocked on a bug in rustc which has been
   fixed but not yet made it out to a stable release
 - Separate construction of the *parser* from construction of the cache.
