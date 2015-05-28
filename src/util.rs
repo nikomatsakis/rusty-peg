@@ -5,6 +5,7 @@ use std::collections::HashSet;
 // used by macro expansion
 pub use std::marker::PhantomData;
 pub use std::collections::HashMap;
+pub use std::rc::Rc;
 
 // ID :=
 //     "[a-zA-Z]+"

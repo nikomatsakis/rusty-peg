@@ -261,7 +261,7 @@ macro_rules! rusty_peg_parser_parsed {
         #[allow(non_snake_case)]
         struct Regexs {
             __dummy__: (),
-            $($reg_nt: Rc<$crate::util::RegexNt>),*
+            $($reg_nt: $crate::util::Rc<$crate::util::RegexNt>),*
         }
 
         impl<'input> $name<'input> {
@@ -272,7 +272,7 @@ macro_rules! rusty_peg_parser_parsed {
                     caches: Caches { __dummy__: (), $($any_nt: $crate::util::HashMap::new()),* },
                     regexs: Regexs {
                         __dummy__: (),
-                        $($reg_nt: Rc::new($crate::util::RegexNt::new(
+                        $($reg_nt: $crate::util::Rc::new($crate::util::RegexNt::new(
                             $reg_re,
                             vec![$($reg_exn),*].into_iter()
                                                .map(|t: &'static str| t.to_string())

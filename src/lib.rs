@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 #[derive(Copy,Clone)]
 pub struct Input<'a> {
-    text: &'a str,
-    offset: usize,
+    pub text: &'a str,
+    pub offset: usize,
 }
 
 pub trait Symbol<'input, G> {
