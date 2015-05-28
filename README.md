@@ -4,6 +4,31 @@ libary is intended to generate parsers that use the
 [Parsing Expression Grammar][PEG] scheme. Rusty PEG is
 [available in Cargo](https://crates.io/crates/rusty-peg).
 
+### Using PEG
+
+To use PEG, add the following to your `Cargo.toml`:
+
+```
+[dependencies]
+rusty-peg = 0.0
+```
+
+and then add this to the `lib.rs` file in your project:
+
+```rust
+#[macro_use]
+extern crate rusty_peg;
+```
+
+and finally use the `rusty_peg` macro somewhere in your code
+(as described below):
+
+```rust
+rusty_peg! {
+    parser MyParser<'input> { ... }
+}
+```
+
 ### A brief tutorial on Rusty PEG
 
 Defining a grammar in Rusty PEG is done through the `rusty_peg!`
