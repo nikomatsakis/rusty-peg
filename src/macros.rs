@@ -265,7 +265,7 @@ macro_rules! rusty_peg_parser_parsed {
         }
 
         impl<'input> $name<'input> {
-            fn new(base: $base) -> $name<'input> {
+            pub fn new(base: $base) -> $name<'input> {
                 $name {
                     marker: $crate::util::PhantomData,
                     base: base,
