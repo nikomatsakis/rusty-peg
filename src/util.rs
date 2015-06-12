@@ -150,7 +150,7 @@ impl<'input,G> Symbol<'input,G> for &'static str {
 
 #[derive(Debug)]
 pub struct Optional<P> {
-    parser: P
+    pub parser: P
 }
 
 impl<'input,G,P> Symbol<'input,G> for Optional<P>
