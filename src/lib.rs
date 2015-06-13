@@ -55,8 +55,8 @@ pub enum Kind<NT> {
 
 #[derive(Clone, Debug)]
 pub struct Error<'input> {
-    expected: &'input str,
-    offset: usize
+    pub expected: &'input str,
+    pub offset: usize
 }
 
 #[macro_use]
