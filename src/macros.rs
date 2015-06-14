@@ -469,13 +469,13 @@ macro_rules! rusty_peg_named_items {
     ( <, $name:ident, :, $a:tt, >, $($bs:tt,)* ) => {
         {
             let bs = rusty_peg_named_items!($($bs,)*);
-            rusty_peg_items!($a, bs)
+            rusty_peg_items!($a, bs,)
         }
     };
     ( $a:tt, $($bs:tt,)* ) => {
         {
             let bs = rusty_peg_named_items!($($bs,)*);
-            rusty_peg_items!($a, bs)
+            rusty_peg_items!($a, bs,)
         }
     };
     ( ) => {
@@ -514,17 +514,17 @@ macro_rules! rusty_peg_named_items_pat {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! rusty_peg_items {
-    ( $a:tt, $($bs:tt)* ) => {
-        $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs)*), }
+    ( $a:tt, /, $($bs:tt,)* ) => {
+        $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs,)*) }
     };
-    ( $a:tt / $($bs:tt)* ) => {
-        $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs)*) }
+    ( $a:tt, $($bs:tt,)* ) => {
+        $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs,)*), }
     };
-    ( $a:tt ) => {
+    ( $a:tt ) => { // micro-optimize away the join
         rusty_peg_item!($a)
     };
     ( ) => {
-        Empty
+        $crate::util::Empty
     }
 }
 
@@ -540,25 +540,25 @@ macro_rules! rusty_peg_item {
     };
 
     { ( $($tt:tt)* ) } => {
-        rusty_peg_items!($($tt)*)
+        rusty_peg_items!($($tt,)*)
     };
 
     { [ $($tt:tt)* ] } => {
-        $crate::util::Optional { parser: rusty_peg_items!($($tt)*) }
+        $crate::util::Optional { parser: rusty_peg_items!($($tt,)*) }
     };
 
     { { + $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: rusty_peg_items!($($tt)*), min: 1,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt,)*), min: 1,
                                separator: $crate::util::Whitespace }
     };
 
     { { * $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: rusty_peg_items!($($tt)*), min: 0,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt,)*), min: 0,
                                separator: $crate::util::Whitespace }
     };
 
     { { $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: rusty_peg_items!($($tt)*), min: 0,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt,)*), min: 0,
                                separator: $crate::util::Whitespace }
     };
 
