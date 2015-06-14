@@ -18,6 +18,10 @@ rusty_peg! {
 
         OptHi: Option<&'input str> = ["Hi"];
         OptHiHo: Option<(&'input str, &'input str)> = ["Hi" "Ho"];
+
+        MapHi: &'input str = (<n:"Hi">) => n;
+        MapHi1: &'input str = (<n:("Hi")>) => n;
+        MapHiHo: (&'input str, &'input str) = (<n:("Hi" "Ho")>) => n;
     }
 }
 
