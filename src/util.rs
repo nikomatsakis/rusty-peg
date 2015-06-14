@@ -39,10 +39,6 @@ impl<'input,NT1,P2,R,G> Symbol<'input,G> for Or<NT1,P2>
 {
     type Output = R;
 
-    fn pretty_print(&self) -> String {
-        format!("({} | {})", self.a.pretty_print(), self.b.pretty_print())
-    }
-
     fn parse(&self, grammar: &mut G, start: Input<'input>)
                  -> ParseResult<'input,R>
     {
@@ -66,10 +62,6 @@ impl<'input,NT1,P2,G> Symbol<'input,G> for Join<NT1,P2>
 {
     type Output = (NT1::Output, P2::Output);
 
-    fn pretty_print(&self) -> String {
-        format!("{} {}", self.first.pretty_print(), self.second.pretty_print())
-    }
-
     fn parse(&self, grammar: &mut G, start: Input<'input>)
                  -> ParseResult<'input,(NT1::Output,P2::Output)>
     {
@@ -86,10 +78,6 @@ pub struct Empty;
 impl<'input,G> Symbol<'input,G> for Empty {
     type Output = ();
 
-    fn pretty_print(&self) -> String {
-        format!("()")
-    }
-
     fn parse(&self, _: &mut G, start: Input<'input>)
                  -> ParseResult<'input,()>
     {
@@ -102,10 +90,6 @@ pub struct Whitespace;
 
 impl<'input,G> Symbol<'input,G> for Whitespace {
     type Output = ();
-
-    fn pretty_print(&self) -> String {
-        format!("Whitespace")
-    }
 
     fn parse(&self, _: &mut G, start: Input<'input>)
              -> ParseResult<'input,()>
@@ -133,10 +117,6 @@ pub fn skip_whitespace<'input>(mut input: Input<'input>) -> Input<'input> {
 impl<'input,G> Symbol<'input,G> for &'static str {
     type Output = &'static str;
 
-    fn pretty_print(&self) -> String {
-        format!("{:?}", self)
-    }
-
     fn parse(&self, _: &mut G, start: Input<'input>) -> ParseResult<'input,&'static str> {
         let text = *self;
         if start.text[start.offset..].starts_with(text) {
@@ -157,10 +137,6 @@ impl<'input,G,P> Symbol<'input,G> for Optional<P>
     where P: Symbol<'input,G>
 {
     type Output = Option<P::Output>;
-
-    fn pretty_print(&self) -> String {
-        format!("[{}]", self.parser.pretty_print())
-    }
 
     fn parse(&self, grammar: &mut G, start: Input<'input>)
                  -> ParseResult<'input,Option<P::Output>>
@@ -183,14 +159,6 @@ impl<'input,G,P,S> Symbol<'input,G> for Repeat<P,S>
     where P: Symbol<'input,G>, S: Symbol<'input,G>
 {
     type Output = Vec<P::Output>;
-
-    fn pretty_print(&self) -> String {
-        match self.min {
-            0 => format!("{{{}}}", self.parser.pretty_print()),
-            1 => format!("{{+ {}}}", self.parser.pretty_print()),
-            _ => format!("{{#{} {}}}", self.min, self.parser.pretty_print()),
-        }
-    }
 
     fn parse(&self, grammar: &mut G, start: Input<'input>)
              -> ParseResult<'input,Vec<P::Output>>
@@ -244,10 +212,6 @@ impl RegexNt {
 
 impl<'input,G> Symbol<'input,G> for RegexNt {
     type Output = &'input str;
-
-    fn pretty_print(&self) -> String {
-        format!("{:?}", self)
-    }
 
     fn parse(&self,
              _: &mut G,

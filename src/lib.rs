@@ -14,8 +14,6 @@ pub struct Input<'a> {
 pub trait Symbol<'input, G> {
     type Output;
 
-    fn pretty_print(&self) -> String;
-
     fn parse_complete(&self, grammar: &mut G, text: &'input str)
                       -> Result<Self::Output, Error<'input>>
     {

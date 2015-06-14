@@ -300,10 +300,6 @@ macro_rules! rusty_peg_declare_map_nonterminal {
         impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
             type Output = $ty;
 
-            fn pretty_print(&self) -> String {
-                stringify!($nonterminal).to_string()
-            }
-
             fn parse(&self,
                      grammar: &mut $grammar<'input>,
                      start: $crate::Input<'input>)
@@ -335,10 +331,6 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
         impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
             type Output = $ty;
 
-            fn pretty_print(&self) -> String {
-                stringify!($nonterminal).to_string()
-            }
-
             fn parse(&self,
                      grammar: &mut $grammar<'input>,
                      start: $crate::Input<'input>)
@@ -367,10 +359,6 @@ macro_rules! rusty_peg_declare_regexp_nonterminal {
 
         impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
             type Output = $ty;
-
-            fn pretty_print(&self) -> String {
-                stringify!($nonterminal).to_string()
-            }
 
             fn parse(&self,
                      grammar: &mut $grammar<'input>,
@@ -404,10 +392,6 @@ macro_rules! rusty_peg_declare_fold_nonterminal {
 
         impl<'input> $crate::Symbol<'input,$grammar<'input>> for $nonterminal {
             type Output = $ty;
-
-            fn pretty_print(&self) -> String {
-                stringify!($nonterminal).to_string()
-            }
 
             fn parse(&self,
                      grammar: &mut $grammar<'input>,
@@ -453,10 +437,7 @@ macro_rules! rusty_peg_declare_fold_nonterminal {
 #[doc(hidden)]
 macro_rules! rusty_peg_named_item {
     ( ( $($a:tt)* ) ) => {
-        rusty_peg_named_items!($($a,)*)
-    };
-    ( ( ) ) => {
-        rusty_peg_named_items!()
+        rusty_peg_named_items!($($a),*)
     };
     ( $a:tt ) => {
         rusty_peg_item!($a)
@@ -466,17 +447,23 @@ macro_rules! rusty_peg_named_item {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! rusty_peg_named_items {
-    ( <, $name:ident, :, $a:tt, >, $($bs:tt,)* ) => {
+    ( <, $name:ident, :, $a:tt, >, $($bs:tt),* ) => {
         {
-            let bs = rusty_peg_named_items!($($bs,)*);
-            rusty_peg_items!($a, bs,)
+            let bs = rusty_peg_named_items!($($bs),*);
+            rusty_peg_items!($a, bs)
         }
     };
-    ( $a:tt, $($bs:tt,)* ) => {
+    ( <, $name:ident, :, $a:tt, > ) => {
+        rusty_peg_item!($a)
+    };
+    ( $a:tt, $($bs:tt),* ) => {
         {
-            let bs = rusty_peg_named_items!($($bs,)*);
-            rusty_peg_items!($a, bs,)
+            let bs = rusty_peg_named_items!($($bs),*);
+            rusty_peg_items!($a, bs)
         }
+    };
+    ( $a:tt ) => {
+        rusty_peg_item!($a)
     };
     ( ) => {
         $crate::util::Empty
@@ -487,7 +474,7 @@ macro_rules! rusty_peg_named_items {
 #[doc(hidden)]
 macro_rules! rusty_peg_named_item_pat {
     ( ( $($a:tt)* ) ) => {
-        rusty_peg_named_items_pat!($($a,)*)
+        rusty_peg_named_items_pat!($($a),*)
     };
     ( $a:tt ) => {
         _
@@ -497,13 +484,16 @@ macro_rules! rusty_peg_named_item_pat {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! rusty_peg_named_items_pat {
-    ( <, $name:ident, :, $a:tt, >, $($bs:tt,)* ) => {
-        ($name, rusty_peg_named_items_pat!($($bs,)*))
+    ( <, $name:ident, :, $a:tt, >, $($bs:tt),* ) => {
+        ($name, rusty_peg_named_items_pat!($($bs),*))
     };
-    ( $a:tt, $($bs:tt,)* ) => {
-        (_, rusty_peg_named_items_pat!($($bs,)*))
+    ( <, $name:ident, :, $a:tt, > ) => {
+        $name
     };
-    ( $a:tt, ) => {
+    ( $a:tt, $($bs:tt),* ) => {
+        (_, rusty_peg_named_items_pat!($($bs),*))
+    };
+    ( $a:tt ) => {
         _
     };
     ( ) => {
@@ -514,13 +504,13 @@ macro_rules! rusty_peg_named_items_pat {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! rusty_peg_items {
-    ( $a:tt, /, $($bs:tt,)* ) => {
-        $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs,)*) }
+    ( $a:tt, /, $($bs:tt),* ) => {
+        $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs),*) }
     };
-    ( $a:tt, $($bs:tt,)* ) => {
-        $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs,)*), }
+    ( $a:tt, $($bs:tt),* ) => {
+        $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs),*), }
     };
-    ( $a:tt ) => { // micro-optimize away the join
+    ( $a:tt ) => { // we want to treat the last item specially
         rusty_peg_item!($a)
     };
     ( ) => {
@@ -535,30 +525,26 @@ macro_rules! rusty_peg_item {
         Empty
     };
 
-    { ( $tt:tt ) } => {
-        rusty_peg_item!($tt)
-    };
-
     { ( $($tt:tt)* ) } => {
-        rusty_peg_items!($($tt,)*)
+        rusty_peg_items!($($tt),*)
     };
 
     { [ $($tt:tt)* ] } => {
-        $crate::util::Optional { parser: rusty_peg_items!($($tt,)*) }
+        $crate::util::Optional { parser: rusty_peg_items!($($tt),*) }
     };
 
     { { + $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: rusty_peg_items!($($tt,)*), min: 1,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt),*), min: 1,
                                separator: $crate::util::Whitespace }
     };
 
     { { * $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: rusty_peg_items!($($tt,)*), min: 0,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt),*), min: 0,
                                separator: $crate::util::Whitespace }
     };
 
     { { $($tt:tt)* } } => {
-        $crate::util::Repeat { parser: rusty_peg_items!($($tt,)*), min: 0,
+        $crate::util::Repeat { parser: rusty_peg_items!($($tt),*), min: 0,
                                separator: $crate::util::Whitespace }
     };
 
