@@ -1,3 +1,5 @@
+/*! A silly grammar */
+
 use Symbol;
 
 pub struct Foo;

@@ -1,3 +1,4 @@
-mod silly_grammar;
-mod classy;
 mod calculator;
+mod classy;
+mod combos;
+mod silly_grammar;
