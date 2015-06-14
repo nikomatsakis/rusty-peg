@@ -52,21 +52,22 @@ impl<'input,NT1,P2,R,G> Symbol<'input,G> for Or<NT1,P2>
 }
 
 #[derive(Debug)]
-pub struct Join<NT1,P2> {
-    pub first: NT1,
+pub struct Join<P1,PS,P2> {
+    pub first: P1,
+    pub sep: PS,
     pub second: P2,
 }
 
-impl<'input,NT1,P2,G> Symbol<'input,G> for Join<NT1,P2>
-    where NT1: Symbol<'input,G>, P2: Symbol<'input,G>
+impl<'input,P1,PS,P2,G> Symbol<'input,G> for Join<P1,PS,P2>
+    where P1: Symbol<'input,G>, PS: Symbol<'input,G,Output=()>, P2: Symbol<'input,G>
 {
-    type Output = (NT1::Output, P2::Output);
+    type Output = (P1::Output, P2::Output);
 
     fn parse(&self, grammar: &mut G, start: Input<'input>)
-                 -> ParseResult<'input,(NT1::Output,P2::Output)>
+                 -> ParseResult<'input,(P1::Output,P2::Output)>
     {
         let (mid, first) = try!(self.first.parse(grammar, start));
-        let (sep, ()) = try!(Whitespace.parse(grammar, mid));
+        let (sep, ()) = try!(self.sep.parse(grammar, mid));
         let (end, second) = try!(self.second.parse(grammar, sep));
         Ok((end, (first, second)))
     }
@@ -233,6 +234,19 @@ impl<'input,G> Symbol<'input,G> for RegexNt {
     }
 }
 
+#[derive(Debug)]
+pub struct Pos;
+
+impl<'input,G> Symbol<'input,G> for Pos
+{
+    type Output = usize;
+
+    fn parse(&self, _: &mut G, start: Input<'input>)
+                 -> ParseResult<'input,usize>
+    {
+        Ok((start, start.offset))
+    }
+}
 pub fn memoize<'input,P,T:Clone,ComputeFn,CacheFn>(
     parser: &mut P,
     mut cache_fn: CacheFn,

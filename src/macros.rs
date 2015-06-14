@@ -305,6 +305,7 @@ macro_rules! rusty_peg_declare_map_nonterminal {
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
+                let start = $crate::util::skip_whitespace(start);
                 $crate::util::memoize(
                     grammar,
                     |g| &mut g.caches.$nonterminal,
@@ -336,6 +337,7 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
+                let start = $crate::util::skip_whitespace(start);
                 $crate::util::memoize(
                     grammar,
                     |g| &mut g.caches.$nonterminal,
@@ -507,8 +509,15 @@ macro_rules! rusty_peg_items {
     ( $a:tt, /, $($bs:tt),* ) => {
         $crate::util::Or { a: rusty_peg_item!($a), b: rusty_peg_items!($($bs),*) }
     };
+    ( $a:tt, ~, $($bs:tt),* ) => {
+        $crate::util::Join { first: rusty_peg_item!($a),
+                             sep: $crate::util::Empty,
+                             second: rusty_peg_items!($($bs),*), }
+    };
     ( $a:tt, $($bs:tt),* ) => {
-        $crate::util::Join { first: rusty_peg_item!($a), second: rusty_peg_items!($($bs),*), }
+        $crate::util::Join { first: rusty_peg_item!($a),
+                             sep: $crate::util::Whitespace,
+                             second: rusty_peg_items!($($bs),*), }
     };
     ( $a:tt ) => { // we want to treat the last item specially
         rusty_peg_item!($a)
@@ -546,6 +555,14 @@ macro_rules! rusty_peg_item {
     { { $($tt:tt)* } } => {
         $crate::util::Repeat { parser: rusty_peg_items!($($tt),*), min: 0,
                                separator: $crate::util::Whitespace }
+    };
+
+    { POS } => {
+        $crate::util::Pos
+    };
+
+    { WHITESPACE } => {
+        $crate::util::Whitespace
     };
 
     { $name:expr } => {

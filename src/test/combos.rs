@@ -1,7 +1,9 @@
 /*!
  * Just make sure that the regular expression accepts the sorts of things we want to
- * accept. Don't test what this grammar parses just yet.
+ * accept. Not everything in this grammar is actually EXECUTED.
  */
+
+use Symbol;
 
 rusty_peg! {
     parser Parser<'input> {
@@ -22,7 +24,19 @@ rusty_peg! {
         MapHi: &'input str = (<n:"Hi">) => n;
         MapHi1: &'input str = (<n:("Hi")>) => n;
         MapHiHo: (&'input str, &'input str) = (<n:("Hi" "Ho")>) => n;
+
+        PosHiHo: (usize, (&'input str, (usize, (&'input str, usize)))) =
+            (POS~"Hi"~POS "Ho"~POS);
     }
 }
 
+#[test]
+fn test_position() {
+    let input = "    Hi        Ho      ";
+    //           01234567890123456789012
+    //           0         1         2
 
+    let (start, (_, (mid, (_, end)))) =
+        PosHiHo.parse_complete(&mut Parser::new(()), input).unwrap();
+    assert_eq!((start, mid, end), (4, 6, 16));
+}
