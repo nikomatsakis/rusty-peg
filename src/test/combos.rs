@@ -12,6 +12,12 @@ rusty_peg! {
         IntHi: u32 = "Hi" => 1;
         IntHi1: u32 = ("Hi") => 1;
         IntHiHo: (u32, u32) = ("Hi" "Ho") => (1,1);
+
+        VecHi: Vec<&'input str> = {"Hi"};
+        VecHiHo: Vec<(&'input str, &'input str)> = {"Hi" "Ho"};
+
+        OptHi: Option<&'input str> = ["Hi"];
+        OptHiHo: Option<(&'input str, &'input str)> = ["Hi" "Ho"];
     }
 }
 
