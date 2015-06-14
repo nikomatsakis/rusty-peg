@@ -38,7 +38,7 @@ rusty_peg! {
             regex(r"^[a-zA-Z_][a-zA-Z_0-9]*") - ["class"];
 
         CLASS: Rc<ClassDefn<'input>> =
-            ("class", <name:ID>, "{", <members:{MEMBER}>, "}") => {
+            ("class" <name:ID> "{" <members:{MEMBER}> "}") => {
                 Rc::new(ClassDefn { name: name, members: members })
             };
 
@@ -46,7 +46,7 @@ rusty_peg! {
             (FIELD_DEFN / METHOD_DEFN);
 
         FIELD_DEFN: Rc<MemberDefn<'input>> =
-            (<name:ID>, ":", <ty:TYPE_REF>, ";") => {
+            (<name:ID> ":" <ty:TYPE_REF> ";") => {
                 Rc::new(MemberDefn::Field(Box::new(
                     FieldDefn { name: name, ty: ty })))
             };
@@ -57,7 +57,7 @@ rusty_peg! {
             };
 
         METHOD_DEFN: Rc<MemberDefn<'input>> =
-            (<name:ID>, "(", <args:{TYPE_REF}>, ")", "->", <ret:TYPE_REF>, ";") => {
+            (<name:ID> "(" <args:{TYPE_REF}> ")" "->" <ret:TYPE_REF> ";") => {
                 Rc::new(MemberDefn::Method(Box::new(
                     MethodDefn { name: name, arg_tys: args, ret_ty: ret })))
             };

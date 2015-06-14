@@ -10,9 +10,9 @@ rusty_peg! {
         HiOrHo: u32 = (Hi / Ho);
 
         Sum: u32 = (Sum1 / HiOrHo);
-        Sum1: u32 = (<x:HiOrHo>, "+", <y:Sum>) => {x + y*10};
+        Sum1: u32 = (<x:HiOrHo> "+" <y:Sum>) => {x + y*10};
 
-        HiHo: () = (Hi, Ho) => ();
+        HiHo: () = (Hi Ho) => ();
 
         Rep: Vec<u32> = {HiOrHo};
     }

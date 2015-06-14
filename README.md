@@ -88,7 +88,7 @@ rusty_peg! {
         // (`e`) which can be referenced in the expression code.
         // In this case, the expression is just `e`, meaning that the value
         // of a paren expression is the same as the expression without the parens.
-        PAREN_EXPR: u32 = ("(", <e:EXPR>, ")") => e;
+        PAREN_EXPR: u32 = ("(" <e:EXPR> ")") => e;
 
         // This is an example of a "fold" nonterminal. Fold nonterminals are a
         // special form that first match one instance of some base form (in this case,
@@ -105,14 +105,14 @@ rusty_peg! {
         // before we parse the `+` and `-` operators.
         ADD_SUB_EXPR: u32 =
             fold(<lhs:MUL_DIV_EXPR>,
-                 ("+", <rhs:MUL_DIV_EXPR>) => { lhs + rhs },
-                 ("-", <rhs:MUL_DIV_EXPR>) => { lhs - rhs });
+                 ("+" <rhs:MUL_DIV_EXPR>) => { lhs + rhs },
+                 ("-" <rhs:MUL_DIV_EXPR>) => { lhs - rhs });
 
         // Another fold definition, this time for `*` and `/`.
         MUL_DIV_EXPR: u32 =
             fold(<lhs:ATOM_EXPR>,
-                 ("*", <rhs:ATOM_EXPR>) => { lhs * rhs },
-                 ("/", <rhs:ATOM_EXPR>) => { lhs / rhs });
+                 ("*" <rhs:ATOM_EXPR>) => { lhs * rhs },
+                 ("/" <rhs:ATOM_EXPR>) => { lhs / rhs });
 
         // `ATOM_EXPR` is the base expression form. It uses the `/` operator, which
         // is called "ordered choice". Basically the parser will attempt the various
@@ -199,12 +199,12 @@ are as follows:
   `Vec<T>`, where `T` is the type of the items list.
 
 An *items list* `ITEMS` has the form of a single item `ITEM` or else a
-comma-separated list like `ITEM0, ITEM1, ITEM2`. The latter has the
+whitespace-separated list like `ITEM0 ITEM1 ITEM2`. The latter has the
 type `(T0,T1,T2)` where `Tn` is the type of `ITEMn`.
   
 - `[ITEM]` (or `[ITEM, ITEM]`) is an optional match of an item. It has the type
   `Option<T>` where `T` is the type of `ITEM`.
-- `{ITEM,}` defines zero-or-more instances 
+- `{ITEM}` defines zero-or-more instances 
 
 #### Defining custom symbol kinds
 
@@ -231,8 +231,6 @@ it (or see a PR, for that matter).  Here are some thoughts I had on
 changes I might make in the future:
 
 - Write a lot more tests; the test suite is far from exhaustive :)
-- Remove the need for the comma operator; this is blocked on a bug in rustc which has been
-  fixed but not yet made it out to a stable release
 - Separate construction of the *parser* from construction of the cache.
 - Perhaps have the macro generate helper functions to do the parser so
   the user has to write less annoying stuff to invoke the parser.

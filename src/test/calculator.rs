@@ -7,17 +7,17 @@ rusty_peg! {
             ADD_SUB_EXPR;
 
         PAREN_EXPR: u32 =
-            ("(", <e:EXPR>, ")") => e;
+            ("(" <e:EXPR> ")") => e;
 
         ADD_SUB_EXPR: u32 =
             fold(<lhs:MUL_DIV_EXPR>,
-                 ("+", <rhs:MUL_DIV_EXPR>) => { lhs + rhs },
-                 ("-", <rhs:MUL_DIV_EXPR>) => { lhs - rhs });
+                 ("+" <rhs:MUL_DIV_EXPR>) => { lhs + rhs },
+                 ("-" <rhs:MUL_DIV_EXPR>) => { lhs - rhs });
 
         MUL_DIV_EXPR: u32 =
             fold(<lhs:ATOM_EXPR>,
-                 ("*", <rhs:ATOM_EXPR>) => { lhs * rhs },
-                 ("/", <rhs:ATOM_EXPR>) => { lhs / rhs });
+                 ("*" <rhs:ATOM_EXPR>) => { lhs * rhs },
+                 ("/" <rhs:ATOM_EXPR>) => { lhs / rhs });
 
         ATOM_EXPR: u32 =
             (NUMBER / PAREN_EXPR);

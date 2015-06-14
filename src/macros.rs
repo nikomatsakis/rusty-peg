@@ -453,7 +453,10 @@ macro_rules! rusty_peg_declare_fold_nonterminal {
 #[doc(hidden)]
 macro_rules! rusty_peg_named_item {
     ( ( $($a:tt)* ) ) => {
-        rusty_peg_named_items!($($a)*)
+        rusty_peg_named_items!($($a,)*)
+    };
+    ( ( ) ) => {
+        rusty_peg_named_items!()
     };
     ( $a:tt ) => {
         rusty_peg_item!($a)
@@ -463,26 +466,20 @@ macro_rules! rusty_peg_named_item {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! rusty_peg_named_items {
-    ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
+    ( <, $name:ident, :, $a:tt, >, $($bs:tt,)* ) => {
         {
-            let bs = rusty_peg_named_items!($($bs)*);
+            let bs = rusty_peg_named_items!($($bs,)*);
             rusty_peg_items!($a, bs)
         }
     };
-    ( < $name:ident : $a:tt > ) => {
-        rusty_peg_item!($a)
-    };
-    ( $a:tt, $($bs:tt)* ) => {
+    ( $a:tt, $($bs:tt,)* ) => {
         {
-            let bs = rusty_peg_named_items!($($bs)*);
+            let bs = rusty_peg_named_items!($($bs,)*);
             rusty_peg_items!($a, bs)
         }
-    };
-    ( $a:tt ) => {
-        rusty_peg_item!($a)
     };
     ( ) => {
-        Empty
+        $crate::util::Empty
     };
 }
 
@@ -490,7 +487,7 @@ macro_rules! rusty_peg_named_items {
 #[doc(hidden)]
 macro_rules! rusty_peg_named_item_pat {
     ( ( $($a:tt)* ) ) => {
-        rusty_peg_named_items_pat!($($a)*)
+        rusty_peg_named_items_pat!($($a,)*)
     };
     ( $a:tt ) => {
         _
@@ -500,16 +497,13 @@ macro_rules! rusty_peg_named_item_pat {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! rusty_peg_named_items_pat {
-    ( < $name:ident : $a:tt > , $($bs:tt)* ) => {
-        ($name, rusty_peg_named_items_pat!($($bs)*))
+    ( <, $name:ident, :, $a:tt, >, $($bs:tt,)* ) => {
+        ($name, rusty_peg_named_items_pat!($($bs,)*))
     };
-    ( < $name:ident : $a:tt > ) => {
-        $name
+    ( $a:tt, $($bs:tt,)* ) => {
+        (_, rusty_peg_named_items_pat!($($bs,)*))
     };
-    ( $a:tt, $($bs:tt)* ) => {
-        (_, rusty_peg_named_items_pat!($($bs)*))
-    };
-    ( $a:tt ) => {
+    ( $a:tt, ) => {
         _
     };
     ( ) => {

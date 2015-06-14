@@ -1,7 +1,7 @@
 [package]
 
 name = "rusty-peg"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Niko Matsakis <niko@alum.mit.edu>"]
 description = "A macro for defining PEG parsers"
 homepage = "https://github.com/nikomatsakis/rusty-peg"
