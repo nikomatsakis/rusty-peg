@@ -305,7 +305,6 @@ macro_rules! rusty_peg_declare_map_nonterminal {
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
-                let start = $crate::util::skip_whitespace(start);
                 $crate::util::memoize(
                     grammar,
                     |g| &mut g.caches.$nonterminal,
@@ -337,7 +336,6 @@ macro_rules! rusty_peg_declare_identity_nonterminal {
                      start: $crate::Input<'input>)
                      -> $crate::ParseResult<'input,$ty>
             {
-                let start = $crate::util::skip_whitespace(start);
                 $crate::util::memoize(
                     grammar,
                     |g| &mut g.caches.$nonterminal,
@@ -557,8 +555,12 @@ macro_rules! rusty_peg_item {
                                separator: $crate::util::Whitespace }
     };
 
-    { POS } => {
-        $crate::util::Pos
+    { POSL } => {
+        $crate::util::PosLeft
+    };
+
+    { POSR } => {
+        $crate::util::PosRight
     };
 
     { WHITESPACE } => {

@@ -234,10 +234,31 @@ impl<'input,G> Symbol<'input,G> for RegexNt {
     }
 }
 
+/// A "PosLeft" skips whitespace and gives the position.
+/// It used to nestle things on the left:
+///
+/// ```
+/// POSL~Foo
+/// ```
 #[derive(Debug)]
-pub struct Pos;
+pub struct PosLeft;
 
-impl<'input,G> Symbol<'input,G> for Pos
+impl<'input,G> Symbol<'input,G> for PosLeft
+{
+    type Output = usize;
+
+    fn parse(&self, _: &mut G, start: Input<'input>)
+                 -> ParseResult<'input,usize>
+    {
+        let start = skip_whitespace(start);
+        Ok((start, start.offset))
+    }
+}
+
+#[derive(Debug)]
+pub struct PosRight;
+
+impl<'input,G> Symbol<'input,G> for PosRight
 {
     type Output = usize;
 
@@ -247,6 +268,27 @@ impl<'input,G> Symbol<'input,G> for Pos
         Ok((start, start.offset))
     }
 }
+
+//#[derive(Debug)]
+//pub struct Not<P> {
+//    pub parser: P
+//}
+//
+//impl<'input,G,P> Symbol<'input,G> for Not<P>
+//    where P: Symbol<'input,G>
+//{
+//    type Output = ();
+//
+//    fn parse(&self, grammar: &mut G, start: Input<'input>)
+//                 -> ParseResult<'input,()>
+//    {
+//        match self.parser.parse(grammar, start) {
+//            Ok(..) => Err(::Error { expected: "not", offset: start.offset }),
+//            Err(..) => Ok((start, ()))
+//        }
+//    }
+//}
+
 pub fn memoize<'input,P,T:Clone,ComputeFn,CacheFn>(
     parser: &mut P,
     mut cache_fn: CacheFn,

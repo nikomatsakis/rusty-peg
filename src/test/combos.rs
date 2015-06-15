@@ -26,7 +26,7 @@ rusty_peg! {
         MapHiHo: (&'input str, &'input str) = (<n:("Hi" "Ho")>) => n;
 
         PosHiHo: (usize, (&'input str, (usize, (&'input str, usize)))) =
-            (POS~"Hi"~POS "Ho"~POS);
+            (POSL~"Hi"~POSR "Ho"~POSR);
     }
 }
 
