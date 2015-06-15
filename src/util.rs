@@ -234,12 +234,12 @@ impl<'input,G> Symbol<'input,G> for RegexNt {
     }
 }
 
-/// A "PosLeft" skips whitespace and gives the position.
-/// It used to nestle things on the left:
-///
-/// ```
-/// POSL~Foo
-/// ```
+// A "PosLeft" skips whitespace and gives the position.
+// It used to nestle things on the left:
+//
+// ```
+// POSL~Foo
+// ```
 #[derive(Debug)]
 pub struct PosLeft;
 

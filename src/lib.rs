@@ -17,7 +17,9 @@ pub trait Symbol<'input, G> {
     fn parse_complete(&self, grammar: &mut G, text: &'input str)
                       -> Result<Self::Output, Error<'input>>
     {
-        let (mid, result) = try!(self.parse_prefix(grammar, text));
+        let start = Input { text: text, offset: 0 };
+        let start = util::skip_whitespace(start);
+        let (mid, result) = try!(self.parse(grammar, start));
         let end = util::skip_whitespace(mid);
         if end.offset == text.len() {
             Ok(result)
