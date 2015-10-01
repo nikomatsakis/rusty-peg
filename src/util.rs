@@ -110,6 +110,7 @@ pub fn skip_whitespace<'input>(mut input: Input<'input>) -> Input<'input> {
         match c as char {
             ' ' => true,
             '\n' => true,
+            '\r' => true,
             _ => false,
         }
     }
